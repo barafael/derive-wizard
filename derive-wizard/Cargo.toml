@@ -1,0 +1,7 @@
+[package]
+name = "derive-wizard"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+derive-wizard-macro = { path = "../derive-wizard-macro" }

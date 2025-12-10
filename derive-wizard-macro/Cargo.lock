@@ -5,10 +5,3 @@ version = 4
 [[package]]
 name = "derive-wizard"
 version = "0.1.0"
-dependencies = [
- "derive-wizard-macro",
-]
-
-[[package]]
-name = "derive-wizard-macro"
-version = "0.1.0"

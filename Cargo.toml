@@ -1,6 +1,5 @@
-[package]
-name = "derive-wizard"
-version = "0.1.0"
-edition = "2024"
+[workspace]
 
-[dependencies]
+resolver = "3"
+
+members = ["derive-wizard", "derive-wizard-macro"]
