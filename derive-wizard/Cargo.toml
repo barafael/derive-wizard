@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 derive-wizard-macro = { path = "../derive-wizard-macro" }
+requestty = "0.6.3"
