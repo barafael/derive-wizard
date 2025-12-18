@@ -12,10 +12,6 @@ struct LoginForm {
 }
 
 fn main() {
-    println!("Testing #[mask] attribute...");
-    println!("This example demonstrates the #[mask] attribute");
-    println!("which creates a password field with hidden input.");
-
     let form = LoginForm::wizard();
     println!("LoginForm: {form:#?}");
 }

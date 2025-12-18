@@ -1,10 +1,5 @@
 use derive_wizard::Wizard;
 
-fn main() {
-    let magic = ShowCase::wizard();
-    println!("Config: {magic:#?}");
-}
-
 #[derive(Debug, Wizard)]
 #[allow(unused)]
 struct ShowCase {
@@ -47,4 +42,9 @@ enum Gender {
     Male,
     Female,
     Other(#[prompt("Please specify:")] String),
+}
+
+fn main() {
+    let magic = ShowCase::wizard();
+    println!("Config: {magic:#?}");
 }

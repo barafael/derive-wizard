@@ -38,6 +38,5 @@ struct Event {
 
 fn main() {
     let event = Event::wizard();
-    println!("\n=== Event Details ===");
     println!("{event:#?}");
 }

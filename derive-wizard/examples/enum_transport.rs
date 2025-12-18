@@ -24,6 +24,5 @@ enum Transport {
 
 fn main() {
     let transport = Transport::wizard();
-    println!("\n=== Transport Selection ===");
     println!("{:#?}", transport);
 }
