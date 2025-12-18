@@ -11,7 +11,7 @@ use syn::parse_macro_input;
 
 use crate::enumeration::implement_enum_wizard;
 
-#[proc_macro_derive(Wizard, attributes(prompt, mask, editor))]
+#[proc_macro_derive(Wizard, attributes(prompt, mask, editor, validate_on_submit))]
 pub fn wizard_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input);
     let ast = implement_wizard(&input);

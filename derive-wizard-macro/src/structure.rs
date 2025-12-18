@@ -29,9 +29,15 @@ pub fn implement_struct_wizard(name: &syn::Ident, data_struct: &syn::DataStruct)
     let (questions, prompts, field_idents): (Vec<_>, Vec<_>, Vec<_>) = field_info
         .into_iter()
         .map(|(ident, attrs, ty)| {
-            let field_gen =
-                generate_field_code(&ident, &ty, attrs.prompt, attrs.mask, attrs.editor)
-                    .expect("Field attributes");
+            let field_gen = generate_field_code(
+                &ident,
+                &ty,
+                attrs.prompt,
+                attrs.mask,
+                attrs.editor,
+                attrs.validate_on_submit,
+            )
+            .expect("Field attributes");
             (field_gen.question, field_gen.prompt, ident)
         })
         .fold((vec![], vec![], vec![]), |(mut qs, ps, ids), (q, p, id)| {
@@ -64,6 +70,7 @@ fn generate_field_code(
     prompt_attr: PromptAttr,
     has_mask: bool,
     has_editor: bool,
+    validate_on_submit: Option<TokenStream>,
 ) -> Result<FieldCode, crate::WizardError> {
     match prompt_attr {
         PromptAttr::None => Err(crate::WizardError::MissingPromptAttributes),
@@ -77,9 +84,16 @@ fn generate_field_code(
                 let question_type = infer::infer_question_type(ty, has_mask, has_editor);
                 let into = infer::infer_target_type(ty)?;
 
+                let validation = validate_on_submit.as_ref().map(|validator| {
+                    quote! { .validate(#validator) }
+                });
+
                 Ok(FieldCode {
                     question: Some(quote! {
-                        let #ident = Question::#question_type(#field_name).message(#prompt_text).build();
+                        let #ident = Question::#question_type(#field_name)
+                            .message(#prompt_text)
+                            #validation
+                            .build();
                     }),
                     prompt: quote! { let #ident = prompt_one(#ident).unwrap() #into; },
                 })

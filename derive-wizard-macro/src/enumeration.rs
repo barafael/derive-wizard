@@ -119,8 +119,16 @@ fn process_enum_field(
             if is_promptable_type(&field.ty) {
                 let question_type = infer::infer_question_type(&field.ty, attrs.mask, attrs.editor);
                 let into = infer::infer_target_type(&field.ty).map_err(|e| (e, field.span()))?;
+                
+                let validation = attrs.validate_on_submit.as_ref().map(|validator| {
+                    quote! { .validate(#validator) }
+                });
+                
                 quote! {
-                    let #field_ident = Question::#question_type(#field_name).message(#prompt_text).build();
+                    let #field_ident = Question::#question_type(#field_name)
+                        .message(#prompt_text)
+                        #validation
+                        .build();
                     let #field_ident = prompt_one(#field_ident).unwrap() #into;
                 }
             } else {

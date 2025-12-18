@@ -1,7 +1,7 @@
 #![doc = include_str!("../../README.md")]
 
 pub use derive_wizard_macro::*;
-pub use requestty::{ExpandItem, ListItem, Question, prompt_one};
+pub use requestty::{Answers, ExpandItem, ListItem, Question, prompt_one};
 
 pub trait Wizard: Sized {
     fn wizard() -> Self;

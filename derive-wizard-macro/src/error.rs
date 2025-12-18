@@ -23,6 +23,9 @@ pub enum WizardError {
 
     #[error("Missing required prompt attributes on one or more fields")]
     MissingPromptAttributes,
+
+    #[error("Expected #[validate_on_submit(\"function_name\")]")]
+    InvalidValidateAttribute,
 }
 
 impl WizardError {
