@@ -50,7 +50,7 @@ struct Config {
 
     #[prompt("Enter the port number:")]
     port: u16,  // Uses 'int' question type by default
-    
+
     #[prompt("Enable logging?")]
     logging: bool,  // Uses 'confirm' question type by default
 }
@@ -107,30 +107,30 @@ struct ComprehensiveExample {
     // String-based prompts
     #[prompt("Basic input:")]
     basic_input: String,
-    
+
     #[prompt("Password:")]
     #[mask]
     password: String,
-    
+
     #[prompt("Long description:")]
     #[editor]
     description: String,
-    
+
     // Boolean
     #[prompt("Agree to terms?")]
     agree: bool,
-    
+
     // Integers
     #[prompt("Your age (i32):")]
     age: i32,
-    
+
     #[prompt("Count (u64):")]
     count: u64,
-    
+
     // Floats
     #[prompt("Height in meters:")]
     height: f64,
-    
+
     #[prompt("Weight in kg:")]
     weight: f32,
 }

@@ -16,7 +16,7 @@ struct Location {
     #[prompt("Location name:")]
     name: String,
 
-    #[wizard]
+    #[prompt]
     coordinates: GeoCoordinates,
 }
 
@@ -29,7 +29,7 @@ struct Event {
     #[prompt("Description:")]
     description: String,
 
-    #[wizard]
+    #[prompt]
     location: Location,
 
     #[prompt("Max attendees:")]

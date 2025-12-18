@@ -32,10 +32,10 @@ struct User {
     #[prompt("Age:")]
     age: u32,
 
-    #[wizard]
+    #[prompt]
     address: Address,
 
-    #[wizard]
+    #[prompt]
     contact: ContactInfo,
 }
 
