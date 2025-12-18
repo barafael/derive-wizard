@@ -5,6 +5,9 @@ pub use requestty::Question;
 pub use requestty::prompt_one;
 pub use requestty::{ExpandItem, ListItem};
 
+#[cfg(feature = "dialoguer")]
+pub mod dialoguer_backend;
+
 pub trait Wizard: Sized {
     fn wizard() -> Self;
 

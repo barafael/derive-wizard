@@ -5,4 +5,24 @@ edition = "2024"
 
 [dependencies]
 derive-wizard-macro = { path = "../derive-wizard-macro" }
+dialoguer = { version = "0.12.0", optional = true }
 requestty = "0.6.3"
+
+[[example]]
+name = "test_user_input"
+path = "examples/test_user_input.rs"
+
+[[example]]
+name = "test_enum_input"
+path = "examples/test_enum_input.rs"
+
+[[example]]
+name = "test_dialoguer"
+path = "examples/test_dialoguer.rs"
+required-features = ["dialoguer"]
+
+[dev-dependencies]
+expectrl = "0.8.0"
+
+[features]
+dialoguer = ["dep:dialoguer"]
