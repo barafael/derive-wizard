@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Meta, parse_macro_input};
 
-#[proc_macro_derive(Wizard, attributes(prompt, mask, editor))]
+#[proc_macro_derive(Wizard, attributes(prompt, mask, editor, wizard))]
 pub fn wizard_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input);
     let ast = implement_wizard(&input);
@@ -20,6 +20,7 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
                 let mut prompt_attr = None;
                 let mut has_mask = false;
                 let mut has_editor = false;
+                let mut has_wizard = false;
 
                 for attr in &field.attrs {
                     if attr.path().is_ident("prompt") {
@@ -28,10 +29,22 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
                         has_mask = true;
                     } else if attr.path().is_ident("editor") {
                         has_editor = true;
+                    } else if attr.path().is_ident("wizard") {
+                        has_wizard = true;
                     }
                 }
 
-                if let Some(prompt) = prompt_attr {
+                if has_wizard {
+                    // #[wizard] fields don't need #[prompt] - they call Type::wizard()
+                    if prompt_attr.is_some() || has_mask || has_editor {
+                        return syn::Error::new_spanned(
+                            field,
+                            "#[wizard] attribute cannot be combined with #[prompt], #[mask], or #[editor]",
+                        )
+                        .to_compile_error();
+                    }
+                    fields.push((field.clone(), None, false, false));
+                } else if let Some(prompt) = prompt_attr {
                     // Check for mutually exclusive attributes
                     if has_mask && has_editor {
                         return syn::Error::new_spanned(
@@ -40,11 +53,11 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
                         )
                         .to_compile_error();
                     }
-                    fields.push((field.clone(), prompt, has_mask, has_editor));
+                    fields.push((field.clone(), Some(prompt), has_mask, has_editor));
                 } else {
                     return syn::Error::new_spanned(
                         field,
-                        "Missing required #[prompt(\"...\")] attribute",
+                        "Missing required #[prompt(\"...\")] or #[wizard] attribute",
                     )
                     .to_compile_error();
                 }
@@ -61,6 +74,16 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
 
     let mut identifiers = Vec::new();
     for (field, prompt_attribute, has_mask, has_editor) in fields {
+        let field_ident = field.ident.clone().unwrap();
+
+        // If no prompt attribute, this is a #[wizard] field
+        if prompt_attribute.is_none() {
+            identifiers.push((field_ident, None, field.ty));
+            continue;
+        }
+
+        let prompt_attribute = prompt_attribute.unwrap();
+
         // Parse the prompt attribute to extract the prompt string
         let prompt_text = match &prompt_attribute.meta {
             Meta::List(meta_list) => meta_list.tokens.clone(),
@@ -70,7 +93,6 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
             }
         };
 
-        let field_ident = field.ident.clone().unwrap();
         let field_name = field_ident.to_string();
 
         // Determine question type - priority: editor > mask > type inference
@@ -164,21 +186,41 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
         };
         let question =
             quote::quote! { Question::#question_type(#field_name).message(#prompt_text).build() };
-        identifiers.push((field_ident, question, field.ty));
+        identifiers.push((field_ident, Some(question), field.ty));
     }
 
     let questions = identifiers
         .iter()
-        .map(|(ident, q, _)| quote::quote! {let #ident = #q;})
+        .filter_map(|(ident, q, _)| q.as_ref().map(|q| quote::quote! {let #ident = #q;}))
         .collect::<TokenStream>();
 
     let prompts = identifiers
         .iter()
-        .map(|(ident, _, t)| {
-            let into = infer_into(t);
-            quote::quote! {
-                let #ident = prompt_one(#ident).unwrap()
-                    #into;
+        .map(|(ident, q, t)| {
+            if q.is_none() {
+                // This is a #[wizard] field - call Type::wizard() directly
+                match t {
+                    syn::Type::Path(type_path) => {
+                        let type_ident = &type_path.path.segments.last().unwrap().ident;
+                        quote::quote! {
+                            let #ident = #type_ident::wizard();
+                        }
+                    }
+                    _ => {
+                        return syn::Error::new_spanned(
+                            t,
+                            "#[wizard] attribute can only be used on named types",
+                        )
+                        .to_compile_error();
+                    }
+                }
+            } else {
+                // Regular field - use prompt_one
+                let into = infer_into(t);
+                quote::quote! {
+                    let #ident = prompt_one(#ident).unwrap()
+                        #into;
+                }
             }
         })
         .collect::<TokenStream>();
@@ -193,11 +235,11 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
         .collect::<TokenStream>();
 
     let code = quote::quote! {
-        use derive_wizard::Question;
-        use derive_wizard::prompt_one;
-
         impl Wizard for #name {
             fn wizard() -> Self {
+                use derive_wizard::Question;
+                use derive_wizard::prompt_one;
+
                 #questions
 
                 #prompts
