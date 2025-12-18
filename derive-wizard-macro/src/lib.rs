@@ -1,4 +1,5 @@
 use proc_macro2::TokenStream;
+use quote::quote;
 use syn::{Meta, parse_macro_input};
 
 #[proc_macro_derive(Wizard, attributes(prompt))]
@@ -42,20 +43,53 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
 
         let field_ident = field.ident.clone().unwrap();
         let field_name = field_ident.to_string();
-        let question = quote::quote! { Question::input(#field_name).message(#prompt_text).build() };
-        identifiers.push((field_ident, question));
+        let question_type = match &field.ty {
+            syn::Type::Path(type_path) => {
+                match type_path
+                    .path
+                    .get_ident()
+                    .map(|id| id.to_string())
+                    .as_deref()
+                {
+                    Some("String") => quote! { input },
+                    Some("u8") | Some("u16") => quote! { int },
+                    _ => {
+                        return syn::Error::new_spanned(
+                            &field.ty,
+                            "Unsupported field type for Wizard derive",
+                        )
+                        .to_compile_error();
+                    }
+                }
+            }
+            _ => unimplemented!(),
+        };
+        let question =
+            quote::quote! { Question::#question_type(#field_name).message(#prompt_text).build() };
+        identifiers.push((field_ident, question, field.ty));
     }
 
     let questions = identifiers
         .iter()
-        .map(|(ident, q)| quote::quote! {let #ident = #q;})
+        .map(|(ident, q, t)| quote::quote! {let #ident = #q;})
         .collect::<TokenStream>();
 
     let prompts = identifiers
         .iter()
-        .map(|(ident, _)| {
+        .map(|(ident, tokens, t)| {
+            let into = infer_into(&t);
             quote::quote! {
-                let #ident = prompt_one(#ident).unwrap();
+                let #ident = prompt_one(#ident).unwrap()
+                    #into;
+            }
+        })
+        .collect::<TokenStream>();
+
+    let target = identifiers
+        .iter()
+        .map(|(ident, tokens, t)| {
+            quote::quote! {
+                #ident,
             }
         })
         .collect::<TokenStream>();
@@ -70,10 +104,34 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
 
                 #prompts
 
-                unimplemented!()
+                let result = Self {
+                    #target
+                };
+
+                result
             }
         }
     };
 
     code.into()
+}
+
+fn infer_into(typ: &syn::Type) -> TokenStream {
+    println!("Type: {:?}", quote! {#typ});
+    match typ {
+        syn::Type::Path(type_path) => match type_path
+            .path
+            .get_ident()
+            .map(|id| id.to_string())
+            .as_deref()
+        {
+            Some(ty @ ("u8" | "u16")) => {
+                let id = syn::Ident::new(ty, proc_macro2::Span::call_site());
+                quote! { .try_into_int().unwrap() as #id }
+            }
+            Some("String") => quote! { .try_into_string().unwrap() },
+            _ => unimplemented!(),
+        },
+        _ => unimplemented!(),
+    }
 }
