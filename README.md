@@ -94,11 +94,33 @@ struct Article {
 }
 ```
 
+### Adding Descriptions with `#[description]`
+
+Use the `#[description]` attribute to provide additional context or instructions that appear on a new line below the prompt:
+
+```rust
+use derive_wizard::Wizard;
+
+#[derive(Debug, Wizard)]
+struct ServerConfig {
+    #[prompt("Enter the server address:")]
+    #[description("Format: host:port (e.g., localhost:8080)")]
+    server: String,
+
+    #[prompt("Enter the user ID:")]
+    #[description("Must be a positive number between 1 and 65535")]
+    user_id: u16,
+}
+```
+
 ## Attributes
 
 - `#[prompt("message")]` - **Required**. The message to display to the user
+- `#[description("text")]` - **Optional**. Additional descriptive text appended to the prompt on a new line
 - `#[mask]` - **Optional**. For String fields: enables password input (hidden text)
 - `#[editor]` - **Optional**. For String fields: opens text editor for longer input
+- `#[validate_on_submit("function_name")]` - **Optional**. Validates input when user submits
+- `#[validate_on_key("function_name")]` - **Optional**. Validates input on every keystroke
 
 **Note**: `#[mask]` and `#[editor]` are mutually exclusive and cannot be used on the same field.
 

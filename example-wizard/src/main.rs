@@ -4,11 +4,13 @@ use derive_wizard::Wizard;
 #[allow(unused)]
 struct Config {
     #[prompt("Enter the server address:")]
+    #[description("Format: host:port (e.g., localhost:8080)")]
     #[validate_on_key("is_valid_address")]
     #[validate_on_submit("is_valid_address")]
     server: String,
 
     #[prompt("Enter the user ID:")]
+    #[description("Must be a positive number between 1 and 65535")]
     user_id: u16,
 }
 

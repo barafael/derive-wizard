@@ -4,6 +4,7 @@ use crate::{PromptAttr, error::WizardError};
 
 pub struct FieldAttrs {
     pub prompt: PromptAttr,
+    pub description: Option<String>,
     pub mask: bool,
     pub editor: bool,
     pub validate_on_submit: Option<proc_macro2::TokenStream>,
@@ -13,6 +14,7 @@ pub struct FieldAttrs {
 impl FieldAttrs {
     pub fn parse(field: &syn::Field) -> Result<Self, (WizardError, proc_macro2::Span)> {
         let mut prompt = PromptAttr::None;
+        let mut description = None;
         let mut mask = false;
         let mut editor = false;
         let mut validate_on_submit = None;
@@ -26,6 +28,15 @@ impl FieldAttrs {
                     Meta::NameValue(_) => {
                         return Err((WizardError::InvalidPromptAttribute, attr.span()));
                     }
+                };
+            } else if attr.path().is_ident("description") {
+                description = match &attr.meta {
+                    Meta::List(list) => {
+                        let lit: syn::LitStr = syn::parse2(list.tokens.clone())
+                            .map_err(|_| (WizardError::InvalidValidateAttribute, attr.span()))?;
+                        Some(lit.value())
+                    }
+                    _ => return Err((WizardError::InvalidValidateAttribute, attr.span())),
                 };
             } else if attr.path().is_ident("mask") {
                 mask = true;
@@ -64,6 +75,7 @@ impl FieldAttrs {
 
         Ok(Self {
             prompt,
+            description,
             mask,
             editor,
             validate_on_submit,

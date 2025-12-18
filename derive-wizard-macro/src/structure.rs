@@ -33,6 +33,7 @@ pub fn implement_struct_wizard(name: &syn::Ident, data_struct: &syn::DataStruct)
                 &ident,
                 &ty,
                 attrs.prompt,
+                attrs.description,
                 attrs.mask,
                 attrs.editor,
                 attrs.validate_on_submit,
@@ -69,6 +70,7 @@ fn generate_field_code(
     ident: &syn::Ident,
     ty: &syn::Type,
     prompt_attr: PromptAttr,
+    description: Option<String>,
     has_mask: bool,
     has_editor: bool,
     validate_on_submit: Option<TokenStream>,
@@ -94,10 +96,16 @@ fn generate_field_code(
                     quote! { .validate_on_key(|input, answers| #validator(input, answers).is_ok()) }
                 });
 
+                let message = if let Some(desc) = description {
+                    quote! { format!("{}\n{}", #prompt_text, #desc) }
+                } else {
+                    quote! { #prompt_text }
+                };
+
                 Ok(FieldCode {
                     question: Some(quote! {
                         let #ident = Question::#question_type(#field_name)
-                            .message(#prompt_text)
+                            .message(#message)
                             #validation
                             #validation_on_key
                             .build();
