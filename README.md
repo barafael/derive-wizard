@@ -123,15 +123,13 @@ struct Config {
     use_ssl: bool,
 }
 
-fn main() {
-    // Create initial configuration
-    let config = Config::wizard();
-    println!("Initial config: {config:#?}");
+// Create initial configuration
+let config = Config::wizard();
+println!("Initial config: {config:#?}");
 
-    // Edit the configuration with defaults pre-filled
-    let updated_config = config.wizard_with_defaults();
-    println!("Updated config: {updated_config:#?}");
-}
+// Edit the configuration with defaults pre-filled
+let updated_config = config.wizard_with_defaults();
+println!("Updated config: {updated_config:#?}");
 ```
 
 When `wizard_with_defaults()` is called:

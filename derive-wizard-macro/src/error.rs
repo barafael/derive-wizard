@@ -10,7 +10,7 @@ pub enum WizardError {
     InvalidPromptAttribute,
 
     #[error("Cannot use both #[mask] and #[editor] - they are mutually exclusive")]
-    ConflictingAttributes,
+    BothMaskAndEditorSpecified,
 
     #[error("Field must have a name")]
     UnnamedField,
@@ -26,6 +26,11 @@ pub enum WizardError {
 
     #[error("Expected #[validate_on_submit(\"function_name\")]")]
     InvalidValidateAttribute,
+
+    #[error(
+        "If 'validate' is specified, both 'validate_on_key' and 'validate_on_submit' are invalid"
+    )]
+    AmbiguousValidation,
 }
 
 impl WizardError {

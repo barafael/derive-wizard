@@ -17,6 +17,7 @@ impl FieldAttrs {
         let mut editor = false;
         let mut validate_on_submit = None;
         let mut validate_on_key = None;
+        let mut validate = None;
 
         for attr in &field.attrs {
             if attr.path().is_ident("prompt") {
@@ -55,11 +56,31 @@ impl FieldAttrs {
                     }
                     _ => return Err((WizardError::InvalidValidateAttribute, attr.span())),
                 };
+            } else if attr.path().is_ident("validate") {
+                let validator_fn = match &attr.meta {
+                    Meta::List(list) => {
+                        let lit: syn::LitStr = syn::parse2(list.tokens.clone())
+                            .map_err(|_| (WizardError::InvalidValidateAttribute, attr.span()))?;
+                        let func_name = lit.value();
+                        let ident = syn::Ident::new(&func_name, lit.span());
+                        Some(quote::quote! {#ident})
+                    }
+                    _ => return Err((WizardError::InvalidValidateAttribute, attr.span())),
+                };
+                validate = Some((validator_fn, attr.span()));
             }
         }
 
+        if let Some((validator_fn, span)) = validate {
+            if validate_on_key.is_some() || validate_on_submit.is_some() {
+                return Err((WizardError::AmbiguousValidation, span));
+            }
+            validate_on_key = validator_fn.clone();
+            validate_on_submit = validator_fn;
+        }
+
         if mask && editor {
-            return Err((WizardError::ConflictingAttributes, field.span()));
+            return Err((WizardError::BothMaskAndEditorSpecified, field.span()));
         }
 
         Ok(Self {
