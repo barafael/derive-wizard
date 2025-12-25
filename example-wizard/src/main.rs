@@ -2,27 +2,51 @@ use derive_wizard::Wizard;
 
 #[derive(Debug, Wizard)]
 #[allow(unused)]
-struct Config {
-    #[prompt("Enter the server address (host:port):")]
-    #[validate_on_key("is_valid_address")]
-    #[validate_on_submit("is_valid_address")]
-    server: String,
+struct ShowCase {
+    // String types - defaults to 'input'
+    #[prompt("Enter your name:")]
+    name: String,
 
-    #[prompt("Enter the user ID (1-65535):")]
-    user_id: u16,
+    // Override with password question type
+    #[prompt("Enter your password:")]
+    #[mask]
+    password: String,
+
+    // Long text with editor
+    #[prompt("Enter a bio:")]
+    #[editor]
+    bio: String,
+
+    // Bool type - defaults to 'confirm'
+    #[prompt("Do you agree to the terms?")]
+    agree: bool,
+
+    // Integer types - defaults to 'int'
+    #[prompt("Enter your age (i32):")]
+    age: i32,
+
+    // Float types - defaults to 'float'
+    #[prompt("Enter your height in meters (f64):")]
+    height: f64,
+
+    #[prompt("Enter a decimal number (f32):")]
+    decimal: f32,
+
+    #[prompt("Enter your gender")]
+    gender: Gender,
 }
 
-fn is_valid_address(input: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
-    if input.contains(':') && input.len() >= 3 && !input.starts_with(':') && !input.ends_with(':') {
-        Ok(())
-    } else {
-        Err("Address must be in format 'host:port' (e.g., 'localhost:8080')".to_string())
-    }
+#[derive(Debug, Wizard)]
+#[allow(unused)]
+enum Gender {
+    Male,
+    Female,
+    Other(#[prompt("Please specify:")] String),
 }
 
 fn main() {
     println!("=== Creating a new configuration ===");
-    let config = Config::wizard();
+    let config = ShowCase::wizard();
     println!("Config: {config:#?}\n");
 
     println!("=== Editing the configuration with defaults ===");

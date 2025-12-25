@@ -2,4 +2,4 @@
 
 resolver = "3"
 
-members = ["derive-wizard", "derive-wizard-macro", "example-wizard"]
+members = ["derive-wizard", "derive-wizard-macro", "derive-wizard-types", "example-wizard"]

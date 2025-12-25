@@ -23,13 +23,19 @@ struct ShowCase {
 
     // Integer types - defaults to 'int'
     #[prompt("Enter your age (i32):")]
+    #[min(0)]
+    #[max(150)]
     age: i32,
 
     // Float types - defaults to 'float'
     #[prompt("Enter your height in meters (f64):")]
+    #[min(0.3)]
+    #[max(3.0)]
     height: f64,
 
     #[prompt("Enter a decimal number (f32):")]
+    #[min(0.0)]
+    #[max(100.0)]
     decimal: f32,
 
     #[prompt("Enter your gender")]
