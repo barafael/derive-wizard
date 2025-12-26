@@ -163,16 +163,14 @@ impl DefaultBackend {
                 let max = int_q.max;
                 if min.is_some() || max.is_some() {
                     q = q.validate(move |value, _| {
-                        if let Some(min_val) = min {
-                            if value < min_val {
+                        if let Some(min_val) = min
+                            && value < min_val {
                                 return Err(format!("Value must be at least {}", min_val));
                             }
-                        }
-                        if let Some(max_val) = max {
-                            if value > max_val {
+                        if let Some(max_val) = max
+                            && value > max_val {
                                 return Err(format!("Value must be at most {}", max_val));
                             }
-                        }
                         Ok(())
                     });
                 }
@@ -197,16 +195,14 @@ impl DefaultBackend {
                 let max = float_q.max;
                 if min.is_some() || max.is_some() {
                     q = q.validate(move |value, _| {
-                        if let Some(min_val) = min {
-                            if value < min_val {
+                        if let Some(min_val) = min
+                            && value < min_val {
                                 return Err(format!("Value must be at least {}", min_val));
                             }
-                        }
-                        if let Some(max_val) = max {
-                            if value > max_val {
+                        if let Some(max_val) = max
+                            && value > max_val {
                                 return Err(format!("Value must be at most {}", max_val));
                             }
-                        }
                         Ok(())
                     });
                 }
