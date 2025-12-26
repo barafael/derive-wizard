@@ -37,6 +37,15 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
         _ => unimplemented!(),
     };
 
+    let interview_with_defaults_code = match &input.data {
+        Data::Struct(data) => generate_interview_with_defaults_struct(data, &interview),
+        Data::Enum(_data) => {
+            // For enums, we can't easily provide defaults, so just return the base interview
+            quote! { Self::interview() }
+        }
+        _ => unimplemented!(),
+    };
+
     TokenStream::from(quote! {
         impl Wizard for #name {
             fn interview() -> derive_wizard::interview::Interview {
@@ -45,6 +54,15 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
 
             fn from_answers(answers: &derive_wizard::backend::Answers) -> Result<Self, derive_wizard::backend::BackendError> {
                 #from_answers_code
+            }
+
+            fn wizard_with_defaults(self) -> Self {
+                use derive_wizard::InterviewBackend;
+                let interview = #interview_with_defaults_code;
+                let answers = derive_wizard::DefaultBackend
+                    .execute(&interview)
+                    .expect("Failed to execute interview");
+                Self::from_answers(&answers).expect("Failed to build from answers")
             }
         }
     })
@@ -457,8 +475,14 @@ fn generate_question_kind_code(kind: &QuestionKind) -> proc_macro2::TokenStream 
                 .max
                 .map(|v| quote! { Some(#v) })
                 .unwrap_or_else(|| quote! { None });
-            let validate_on_key = opt_str!(&q.validate_on_key);
-            let validate_on_submit = opt_str!(&q.validate_on_submit);
+            let validate_on_key = match &q.validate_on_key {
+                Some(v) => quote! { Some(#v.to_string()) },
+                None => quote! { None },
+            };
+            let validate_on_submit = match &q.validate_on_submit {
+                Some(v) => quote! { Some(#v.to_string()) },
+                None => quote! { None },
+            };
             quote! {
                 derive_wizard::question::QuestionKind::Int(derive_wizard::question::IntQuestion {
                     default: #default,
@@ -590,5 +614,162 @@ fn generate_answer_extraction(ty: &Type, field_name: &str) -> proc_macro2::Token
             let type_ident = syn::parse_str::<syn::Ident>(type_str).unwrap();
             quote! { #type_ident::from_answers(answers)? }
         }
+    }
+}
+
+fn generate_interview_with_defaults_struct(
+    data: &syn::DataStruct,
+    base_interview: &Interview,
+) -> proc_macro2::TokenStream {
+    let Fields::Named(fields) = &data.fields else {
+        return quote! { Self::interview() };
+    };
+
+    // Get the questions from the base interview
+    let Section::Sequence(seq) = &base_interview.sections[0] else {
+        return quote! { Self::interview() };
+    };
+
+    let questions_with_defaults: Vec<_> = fields
+        .named
+        .iter()
+        .zip(&seq.sequence)
+        .map(|(field, question)| {
+            let field_name = field.ident.as_ref().unwrap();
+            let field_type = &field.ty;
+
+            generate_question_with_default_code(question, field_name, field_type)
+        })
+        .collect();
+
+    quote! {{
+        let mut interview = Self::interview();
+        if let Some(derive_wizard::interview::Section::Sequence(seq)) = interview.sections.get_mut(0) {
+            seq.sequence = vec![#(#questions_with_defaults),*];
+        }
+        interview
+    }}
+}
+
+fn generate_question_with_default_code(
+    question: &Question,
+    field_name: &syn::Ident,
+    field_type: &Type,
+) -> proc_macro2::TokenStream {
+    let id = question
+        .id()
+        .map(|id| quote! { Some(#id.to_string()) })
+        .unwrap_or_else(|| quote! { None });
+    let name = question.name();
+    let prompt = question.prompt();
+
+    let kind_with_default = match question.kind() {
+        QuestionKind::Input(q) => {
+            let validate_on_key = match &q.validate_on_key {
+                Some(v) => quote! { Some(#v.to_string()) },
+                None => quote! { None },
+            };
+            let validate_on_submit = match &q.validate_on_submit {
+                Some(v) => quote! { Some(#v.to_string()) },
+                None => quote! { None },
+            };
+
+            match quote!(#field_type).to_string().as_str() {
+                "String" => quote! {
+                    derive_wizard::question::QuestionKind::Input(derive_wizard::question::InputQuestion {
+                        default: Some(self.#field_name.clone()),
+                        validate_on_key: #validate_on_key,
+                        validate_on_submit: #validate_on_submit,
+                    })
+                },
+                "PathBuf" => quote! {
+                    derive_wizard::question::QuestionKind::Input(derive_wizard::question::InputQuestion {
+                        default: Some(self.#field_name.display().to_string()),
+                        validate_on_key: #validate_on_key,
+                        validate_on_submit: #validate_on_submit,
+                    })
+                },
+                _ => generate_question_kind_code(question.kind()),
+            }
+        }
+        QuestionKind::Multiline(q) => {
+            let validate_on_submit = match &q.validate_on_submit {
+                Some(v) => quote! { Some(#v.to_string()) },
+                None => quote! { None },
+            };
+            quote! {
+                derive_wizard::question::QuestionKind::Multiline(derive_wizard::question::MultilineQuestion {
+                    default: Some(self.#field_name.clone()),
+                    validate_on_submit: #validate_on_submit,
+                })
+            }
+        }
+        QuestionKind::Int(q) => {
+            let min = q
+                .min
+                .map(|v| quote! { Some(#v) })
+                .unwrap_or_else(|| quote! { None });
+            let max = q
+                .max
+                .map(|v| quote! { Some(#v) })
+                .unwrap_or_else(|| quote! { None });
+            let validate_on_key = match &q.validate_on_key {
+                Some(v) => quote! { Some(#v.to_string()) },
+                None => quote! { None },
+            };
+            let validate_on_submit = match &q.validate_on_submit {
+                Some(v) => quote! { Some(#v.to_string()) },
+                None => quote! { None },
+            };
+            quote! {
+                derive_wizard::question::QuestionKind::Int(derive_wizard::question::IntQuestion {
+                    default: Some(self.#field_name as i64),
+                    min: #min,
+                    max: #max,
+                    validate_on_key: #validate_on_key,
+                    validate_on_submit: #validate_on_submit,
+                })
+            }
+        }
+        QuestionKind::Float(q) => {
+            let min = q
+                .min
+                .map(|v| quote! { Some(#v) })
+                .unwrap_or_else(|| quote! { None });
+            let max = q
+                .max
+                .map(|v| quote! { Some(#v) })
+                .unwrap_or_else(|| quote! { None });
+            let validate_on_key = match &q.validate_on_key {
+                Some(v) => quote! { Some(#v.to_string()) },
+                None => quote! { None },
+            };
+            let validate_on_submit = match &q.validate_on_submit {
+                Some(v) => quote! { Some(#v.to_string()) },
+                None => quote! { None },
+            };
+            quote! {
+                derive_wizard::question::QuestionKind::Float(derive_wizard::question::FloatQuestion {
+                    default: Some(self.#field_name as f64),
+                    min: #min,
+                    max: #max,
+                    validate_on_key: #validate_on_key,
+                    validate_on_submit: #validate_on_submit,
+                })
+            }
+        }
+        QuestionKind::Confirm(q) => {
+            let _ = q;
+            quote! {
+                derive_wizard::question::QuestionKind::Confirm(derive_wizard::question::ConfirmQuestion {
+                    default: self.#field_name,
+                })
+            }
+        }
+        _ => generate_question_kind_code(question.kind()),
+    };
+
+    quote! {
+        derive_wizard::question::Question::new(#id, #name.to_string(), #prompt.to_string(), #kind_with_default)
     }
 }
