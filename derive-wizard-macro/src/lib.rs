@@ -397,54 +397,91 @@ fn generate_question_code(question: &Question) -> proc_macro2::TokenStream {
 }
 
 fn generate_question_kind_code(kind: &QuestionKind) -> proc_macro2::TokenStream {
-    let opt_str = |s: &Option<String>| match s {
-        Some(v) => quote! { Some(#v.to_string()) },
-        None => quote! { None },
-    };
-    let opt_val = |v: &Option<impl quote::ToTokens>| match v {
-        Some(v) => quote! { Some(#v) },
-        None => quote! { None },
-    };
+    macro_rules! opt_str {
+        ($opt:expr) => {
+            match $opt {
+                Some(v) => quote! { Some(#v.to_string()) },
+                None => quote! { None },
+            }
+        };
+    }
+
+    macro_rules! opt_val {
+        ($opt:expr) => {
+            match $opt {
+                Some(v) => quote! { Some(#v) },
+                None => quote! { None },
+            }
+        };
+    }
 
     match kind {
-        QuestionKind::Input(q) => quote! {
-            derive_wizard::question::QuestionKind::Input(derive_wizard::question::InputQuestion {
-                default: #(opt_str(&q.default)),
-                validate_on_key: #(opt_str(&q.validate_on_key)),
-                validate_on_submit: #(opt_str(&q.validate_on_submit)),
-            })
-        },
-        QuestionKind::Multiline(q) => quote! {
-            derive_wizard::question::QuestionKind::Multiline(derive_wizard::question::MultilineQuestion {
-                default: #(opt_str(&q.default)),
-                validate_on_submit: #(opt_str(&q.validate_on_submit)),
-            })
-        },
-        QuestionKind::Masked(q) => quote! {
-            derive_wizard::question::QuestionKind::Masked(derive_wizard::question::MaskedQuestion {
-                mask: #(opt_val(&q.mask)),
-                validate_on_key: #(opt_str(&q.validate_on_key)),
-                validate_on_submit: #(opt_str(&q.validate_on_submit)),
-            })
-        },
-        QuestionKind::Int(q) => quote! {
-            derive_wizard::question::QuestionKind::Int(derive_wizard::question::IntQuestion {
-                default: #(opt_val(&q.default)),
-                min: #(opt_val(&q.min)),
-                max: #(opt_val(&q.max)),
-                validate_on_key: #(opt_str(&q.validate_on_key)),
-                validate_on_submit: #(opt_str(&q.validate_on_submit)),
-            })
-        },
-        QuestionKind::Float(q) => quote! {
-            derive_wizard::question::QuestionKind::Float(derive_wizard::question::FloatQuestion {
-                default: #(opt_val(&q.default)),
-                min: #(opt_val(&q.min)),
-                max: #(opt_val(&q.max)),
-                validate_on_key: #(opt_str(&q.validate_on_key)),
-                validate_on_submit: #(opt_str(&q.validate_on_submit)),
-            })
-        },
+        QuestionKind::Input(q) => {
+            let default = opt_str!(&q.default);
+            let validate_on_key = opt_str!(&q.validate_on_key);
+            let validate_on_submit = opt_str!(&q.validate_on_submit);
+            quote! {
+                derive_wizard::question::QuestionKind::Input(derive_wizard::question::InputQuestion {
+                    default: #default,
+                    validate_on_key: #validate_on_key,
+                    validate_on_submit: #validate_on_submit,
+                })
+            }
+        }
+        QuestionKind::Multiline(q) => {
+            let default = opt_str!(&q.default);
+            let validate_on_submit = opt_str!(&q.validate_on_submit);
+            quote! {
+                derive_wizard::question::QuestionKind::Multiline(derive_wizard::question::MultilineQuestion {
+                    default: #default,
+                    validate_on_submit: #validate_on_submit,
+                })
+            }
+        }
+        QuestionKind::Masked(q) => {
+            let mask = opt_val!(&q.mask);
+            let validate_on_key = opt_str!(&q.validate_on_key);
+            let validate_on_submit = opt_str!(&q.validate_on_submit);
+            quote! {
+                derive_wizard::question::QuestionKind::Masked(derive_wizard::question::MaskedQuestion {
+                    mask: #mask,
+                    validate_on_key: #validate_on_key,
+                    validate_on_submit: #validate_on_submit,
+                })
+            }
+        }
+        QuestionKind::Int(q) => {
+            let default = opt_val!(&q.default);
+            let min = opt_val!(&q.min);
+            let max = opt_val!(&q.max);
+            let validate_on_key = opt_str!(&q.validate_on_key);
+            let validate_on_submit = opt_str!(&q.validate_on_submit);
+            quote! {
+                derive_wizard::question::QuestionKind::Int(derive_wizard::question::IntQuestion {
+                    default: #default,
+                    min: #min,
+                    max: #max,
+                    validate_on_key: #validate_on_key,
+                    validate_on_submit: #validate_on_submit,
+                })
+            }
+        }
+        QuestionKind::Float(q) => {
+            let default = opt_val!(&q.default);
+            let min = opt_val!(&q.min);
+            let max = opt_val!(&q.max);
+            let validate_on_key = opt_str!(&q.validate_on_key);
+            let validate_on_submit = opt_str!(&q.validate_on_submit);
+            quote! {
+                derive_wizard::question::QuestionKind::Float(derive_wizard::question::FloatQuestion {
+                    default: #default,
+                    min: #min,
+                    max: #max,
+                    validate_on_key: #validate_on_key,
+                    validate_on_submit: #validate_on_submit,
+                })
+            }
+        }
         QuestionKind::Confirm(q) => {
             let default = q.default;
             quote! {
