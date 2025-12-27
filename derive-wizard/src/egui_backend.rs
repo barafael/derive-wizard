@@ -3,6 +3,75 @@ use crate::backend::{AnswerValue, Answers, BackendError, InterviewBackend};
 use crate::interview::{Interview, Section, Sequence};
 use crate::question::{Question, QuestionKind};
 
+/// egui-based interview backend
+pub struct EguiBackend {
+    title: String,
+    window_size: [f32; 2],
+    options: Option<eframe::NativeOptions>,
+}
+
+impl EguiBackend {
+    /// Create a new egui backend with default settings
+    pub fn new() -> Self {
+        Self {
+            title: "Interview Wizard".to_string(),
+            window_size: [400.0, 300.0],
+            options: None,
+        }
+    }
+
+    /// Set the window title
+    pub fn with_title(mut self, title: impl Into<String>) -> Self {
+        self.title = title.into();
+        self
+    }
+
+    /// Set the window size
+    pub fn with_window_size(mut self, size: [f32; 2]) -> Self {
+        self.window_size = size;
+        self
+    }
+
+    /// Set custom eframe options
+    pub fn with_options(mut self, options: eframe::NativeOptions) -> Self {
+        self.options = Some(options);
+        self
+    }
+}
+
+impl Default for EguiBackend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl InterviewBackend for EguiBackend {
+    fn execute(&self, interview: &Interview) -> Result<Answers, BackendError> {
+        // Create a channel to get the result back from the GUI
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        let options = eframe::NativeOptions {
+            viewport: egui::ViewportBuilder::default().with_inner_size(self.window_size),
+            ..Default::default()
+        };
+
+        let title = self.title.clone();
+        let interview = interview.clone();
+
+        // Run the GUI - this blocks until the window is closed
+        let _ = eframe::run_native(
+            &title,
+            options,
+            Box::new(move |_cc| Ok(Box::new(EguiWizardApp::new(interview, tx)))),
+        );
+
+        // Get the result from the channel
+        rx.recv().map_err(|e| {
+            BackendError::ExecutionError(format!("GUI closed without result: {}", e))
+        })?
+    }
+}
+
 /// State for the interview
 #[derive(Debug, Clone)]
 struct InterviewState {
@@ -27,26 +96,28 @@ impl InterviewState {
     }
 }
 
-/// egui-based interview backend
-pub struct EguiBackend {
+/// Internal GUI app
+struct EguiWizardApp {
     interview: Interview,
     state: InterviewState,
     completed: bool,
-    result: Option<Result<Answers, BackendError>>,
+    result_sender: Option<std::sync::mpsc::Sender<Result<Answers, BackendError>>>,
 }
 
-impl EguiBackend {
-    pub fn new(interview: Interview) -> Self {
+impl EguiWizardApp {
+    fn new(
+        interview: Interview,
+        tx: std::sync::mpsc::Sender<Result<Answers, BackendError>>,
+    ) -> Self {
         Self {
             interview,
             state: InterviewState::new(),
             completed: false,
-            result: None,
+            result_sender: Some(tx),
         }
     }
 
-    /// Show the interview UI and return true if completed
-    pub fn show(&mut self, ctx: &egui::Context) -> bool {
+    fn show_wizard(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Interview Wizard");
             ui.separator();
@@ -69,8 +140,12 @@ impl EguiBackend {
 
                 // Submit button at the bottom
                 if ui.button("Submit").clicked() {
-                    if self.validate_and_save_all() {
-                        self.completed = true;
+                    if let Some(answers) = self.validate_and_collect() {
+                        if let Some(tx) = self.result_sender.take() {
+                            let _ = tx.send(Ok(answers));
+                            self.completed = true;
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                        }
                     }
                 }
 
@@ -84,15 +159,11 @@ impl EguiBackend {
                 }
             });
         });
-
-        self.completed
     }
 
     fn show_section(&mut self, ui: &mut egui::Ui, section: &Section, section_idx: usize) {
         match section {
-            Section::Empty => {
-                // Nothing to render
-            }
+            Section::Empty => {}
             Section::Sequence(seq) => {
                 self.show_sequence(ui, seq);
             }
@@ -138,7 +209,7 @@ impl EguiBackend {
 
         ui.add_space(10.0);
 
-        // Show follow-up questions for selected alternative (only if not empty)
+        // Show follow-up questions for selected alternative
         if let Some(alt) = alternatives.get(selected) {
             if !matches!(alt.section, Section::Empty) {
                 ui.group(|ui| {
@@ -156,7 +227,6 @@ impl EguiBackend {
         ui.horizontal(|ui| {
             ui.label(question.prompt());
 
-            // Show error indicator if there's a validation error
             if self.state.validation_errors.contains_key(id) {
                 ui.colored_label(egui::Color32::RED, "⚠");
             }
@@ -166,10 +236,8 @@ impl EguiBackend {
         match question.kind() {
             QuestionKind::Input(input_q) => {
                 let buffer = self.state.get_or_init_buffer(id);
-
                 let mut text_edit = egui::TextEdit::singleline(buffer);
 
-                // Use default as placeholder text if available
                 if let Some(default) = &input_q.default {
                     text_edit = text_edit.hint_text(default);
                 }
@@ -178,24 +246,21 @@ impl EguiBackend {
             }
             QuestionKind::Multiline(multiline_q) => {
                 let buffer = self.state.get_or_init_buffer(id);
-
                 let mut text_edit = egui::TextEdit::multiline(buffer);
 
-                // Use default as placeholder text if available
                 if let Some(default) = &multiline_q.default {
                     text_edit = text_edit.hint_text(default);
                 }
 
                 ui.add(text_edit);
             }
-            QuestionKind::Masked(_masked_q) => {
+            QuestionKind::Masked(_) => {
                 let buffer = self.state.get_or_init_buffer(id);
                 ui.add(egui::TextEdit::singleline(buffer).password(true));
             }
             QuestionKind::Int(int_q) => {
                 let buffer = self.state.get_or_init_buffer(id);
 
-                // Parse current value or use default
                 let mut value = if buffer.is_empty() {
                     int_q.default.unwrap_or(0)
                 } else {
@@ -217,7 +282,6 @@ impl EguiBackend {
             QuestionKind::Float(float_q) => {
                 let buffer = self.state.get_or_init_buffer(id);
 
-                // Parse current value or use default
                 let mut value = if buffer.is_empty() {
                     float_q.default.unwrap_or(0.0)
                 } else {
@@ -256,12 +320,11 @@ impl EguiBackend {
         }
     }
 
-    fn validate_and_save_all(&mut self) -> bool {
+    fn validate_and_collect(&mut self) -> Option<Answers> {
         self.state.validation_errors.clear();
         let mut answers = Answers::new();
         let mut all_valid = true;
 
-        // Validate and save all questions from all sections
         let sections = self.interview.sections.clone();
         for (section_idx, section) in sections.iter().enumerate() {
             if !self.validate_section(section, section_idx, &mut answers) {
@@ -269,11 +332,7 @@ impl EguiBackend {
             }
         }
 
-        if all_valid {
-            self.result = Some(Ok(answers));
-        }
-
-        all_valid
+        if all_valid { Some(answers) } else { None }
     }
 
     fn validate_section(
@@ -287,7 +346,7 @@ impl EguiBackend {
             Section::Sequence(seq) => {
                 let mut valid = true;
                 for question in &seq.sequence {
-                    if !self.validate_and_save_question(question, answers) {
+                    if !self.validate_question(question, answers) {
                         valid = false;
                     }
                 }
@@ -302,14 +361,12 @@ impl EguiBackend {
                     .copied()
                     .unwrap_or(*default_idx);
 
-                // Store the selected alternative name
                 if let Some(alt) = alternatives.get(selected) {
                     answers.insert(
                         "selected_alternative".to_string(),
                         AnswerValue::String(alt.name.clone()),
                     );
 
-                    // Validate the follow-up section
                     self.validate_section(&alt.section, section_idx * 1000 + selected, answers)
                 } else {
                     true
@@ -318,13 +375,12 @@ impl EguiBackend {
         }
     }
 
-    fn validate_and_save_question(&mut self, question: &Question, answers: &mut Answers) -> bool {
+    fn validate_question(&mut self, question: &Question, answers: &mut Answers) -> bool {
         let id = question.id().unwrap_or(question.name());
         let buffer = self.state.get_or_init_buffer(id).clone();
 
         match question.kind() {
             QuestionKind::Input(input_q) => {
-                // Use default if buffer is empty
                 let value = if buffer.is_empty() {
                     input_q.default.clone().unwrap_or_default()
                 } else {
@@ -334,7 +390,6 @@ impl EguiBackend {
                 true
             }
             QuestionKind::Multiline(multiline_q) => {
-                // Use default if buffer is empty
                 let value = if buffer.is_empty() {
                     multiline_q.default.clone().unwrap_or_default()
                 } else {
@@ -348,7 +403,6 @@ impl EguiBackend {
                 true
             }
             QuestionKind::Int(int_q) => {
-                // Use default if buffer is empty
                 if buffer.is_empty() {
                     let val = int_q.default.unwrap_or(0);
                     answers.insert(id.to_string(), AnswerValue::Int(val));
@@ -371,7 +425,6 @@ impl EguiBackend {
                 }
             }
             QuestionKind::Float(float_q) => {
-                // Use default if buffer is empty
                 if buffer.is_empty() {
                     let val = float_q.default.unwrap_or(0.0);
                     answers.insert(id.to_string(), AnswerValue::Float(val));
@@ -402,20 +455,10 @@ impl EguiBackend {
             QuestionKind::Nested(_) => false,
         }
     }
-
-    /// Get the result if the interview is completed
-    pub fn result(&self) -> Option<&Result<Answers, BackendError>> {
-        self.result.as_ref()
-    }
 }
 
-impl InterviewBackend for EguiBackend {
-    fn execute(&self, _interview: &Interview) -> Result<Answers, BackendError> {
-        // For egui, we can't block and execute synchronously
-        // This should be called after the UI completes
-        Err(BackendError::Custom(
-            "EguiBackend::execute should not be called directly. Use show() method instead."
-                .to_string(),
-        ))
+impl eframe::App for EguiWizardApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.show_wizard(ctx);
     }
 }

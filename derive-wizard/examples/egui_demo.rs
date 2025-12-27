@@ -32,64 +32,16 @@ struct UserProfile {
     gender: Gender,
 }
 
-fn main() -> Result<(), eframe::Error> {
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([400.0, 300.0]),
-        ..Default::default()
-    };
+fn main() {
+    println!("=== User Profile Wizard - egui Demo ===\n");
 
-    eframe::run_native(
-        "Interview Wizard - egui Demo",
-        options,
-        Box::new(|_cc| Ok(Box::new(WizardApp::new()))),
-    )
-}
+    // Use the egui backend
+    let backend = derive_wizard::EguiBackend::new()
+        .with_title("User Profile Wizard")
+        .with_window_size([400.0, 300.0]);
 
-struct WizardApp {
-    backend: derive_wizard::EguiBackend,
-    final_result: Option<UserProfile>,
-}
+    let profile = UserProfile::wizard_with_backend(&backend);
 
-impl WizardApp {
-    fn new() -> Self {
-        let interview = UserProfile::interview();
-        Self {
-            backend: derive_wizard::EguiBackend::new(interview),
-            final_result: None,
-        }
-    }
-}
-
-impl eframe::App for WizardApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let completed = self.backend.show(ctx);
-
-        if completed && self.final_result.is_none() {
-            if let Some(Ok(answers)) = self.backend.result() {
-                match UserProfile::from_answers(answers) {
-                    Ok(profile) => {
-                        println!("Interview completed!");
-                        println!("{:#?}", profile);
-                        self.final_result = Some(profile);
-                    }
-                    Err(e) => {
-                        eprintln!("Error building profile: {}", e);
-                    }
-                }
-            }
-        }
-
-        if let Some(ref profile) = self.final_result {
-            egui::CentralPanel::default().show(ctx, |ui| {
-                ui.heading("Interview Complete!");
-                ui.separator();
-                ui.label(format!("Name: {}", profile.name));
-                ui.label(format!("Age: {}", profile.age));
-                ui.label(format!("Height: {:.2}m", profile.height));
-                ui.label(format!("Email: {}", profile.email));
-                ui.label(format!("Agreed: {}", profile.agree));
-                ui.label(format!("Gender: {:?}", profile.gender));
-            });
-        }
-    }
+    println!("\n=== Profile Created ===");
+    println!("{:#?}", profile);
 }
