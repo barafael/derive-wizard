@@ -167,25 +167,26 @@ impl EguiBackend {
             QuestionKind::Input(input_q) => {
                 let buffer = self.state.get_or_init_buffer(id);
 
-                // Initialize with default if empty
-                if buffer.is_empty() {
-                    if let Some(default) = &input_q.default {
-                        *buffer = default.clone();
-                    }
+                let mut text_edit = egui::TextEdit::singleline(buffer);
+
+                // Use default as placeholder text if available
+                if let Some(default) = &input_q.default {
+                    text_edit = text_edit.hint_text(default);
                 }
 
-                ui.text_edit_singleline(buffer);
+                ui.add(text_edit);
             }
             QuestionKind::Multiline(multiline_q) => {
                 let buffer = self.state.get_or_init_buffer(id);
 
-                if buffer.is_empty() {
-                    if let Some(default) = &multiline_q.default {
-                        *buffer = default.clone();
-                    }
+                let mut text_edit = egui::TextEdit::multiline(buffer);
+
+                // Use default as placeholder text if available
+                if let Some(default) = &multiline_q.default {
+                    text_edit = text_edit.hint_text(default);
                 }
 
-                ui.text_edit_multiline(buffer);
+                ui.add(text_edit);
             }
             QuestionKind::Masked(_masked_q) => {
                 let buffer = self.state.get_or_init_buffer(id);
@@ -322,37 +323,77 @@ impl EguiBackend {
         let buffer = self.state.get_or_init_buffer(id).clone();
 
         match question.kind() {
-            QuestionKind::Input(_) | QuestionKind::Multiline(_) | QuestionKind::Masked(_) => {
+            QuestionKind::Input(input_q) => {
+                // Use default if buffer is empty
+                let value = if buffer.is_empty() {
+                    input_q.default.clone().unwrap_or_default()
+                } else {
+                    buffer
+                };
+                answers.insert(id.to_string(), AnswerValue::String(value));
+                true
+            }
+            QuestionKind::Multiline(multiline_q) => {
+                // Use default if buffer is empty
+                let value = if buffer.is_empty() {
+                    multiline_q.default.clone().unwrap_or_default()
+                } else {
+                    buffer
+                };
+                answers.insert(id.to_string(), AnswerValue::String(value));
+                true
+            }
+            QuestionKind::Masked(_) => {
                 answers.insert(id.to_string(), AnswerValue::String(buffer));
                 true
             }
-            QuestionKind::Int(_) => match buffer.parse::<i64>() {
-                Ok(val) => {
+            QuestionKind::Int(int_q) => {
+                // Use default if buffer is empty
+                if buffer.is_empty() {
+                    let val = int_q.default.unwrap_or(0);
                     answers.insert(id.to_string(), AnswerValue::Int(val));
                     self.state.validation_errors.remove(id);
                     true
+                } else {
+                    match buffer.parse::<i64>() {
+                        Ok(val) => {
+                            answers.insert(id.to_string(), AnswerValue::Int(val));
+                            self.state.validation_errors.remove(id);
+                            true
+                        }
+                        Err(_) => {
+                            self.state
+                                .validation_errors
+                                .insert(id.to_string(), "Please enter a valid integer".to_string());
+                            false
+                        }
+                    }
                 }
-                Err(_) => {
-                    self.state
-                        .validation_errors
-                        .insert(id.to_string(), "Please enter a valid integer".to_string());
-                    false
-                }
-            },
-            QuestionKind::Float(_) => match buffer.parse::<f64>() {
-                Ok(val) => {
+            }
+            QuestionKind::Float(float_q) => {
+                // Use default if buffer is empty
+                if buffer.is_empty() {
+                    let val = float_q.default.unwrap_or(0.0);
                     answers.insert(id.to_string(), AnswerValue::Float(val));
                     self.state.validation_errors.remove(id);
                     true
+                } else {
+                    match buffer.parse::<f64>() {
+                        Ok(val) => {
+                            answers.insert(id.to_string(), AnswerValue::Float(val));
+                            self.state.validation_errors.remove(id);
+                            true
+                        }
+                        Err(_) => {
+                            self.state.validation_errors.insert(
+                                id.to_string(),
+                                "Please enter a valid decimal number".to_string(),
+                            );
+                            false
+                        }
+                    }
                 }
-                Err(_) => {
-                    self.state.validation_errors.insert(
-                        id.to_string(),
-                        "Please enter a valid decimal number".to_string(),
-                    );
-                    false
-                }
-            },
+            }
             QuestionKind::Confirm(_) => {
                 let val = buffer == "true";
                 answers.insert(id.to_string(), AnswerValue::Bool(val));
