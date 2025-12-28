@@ -2,4 +2,11 @@
 
 resolver = "3"
 
-members = ["derive-wizard", "derive-wizard-macro", "derive-wizard-types", "example-wizard"]
+default-members = ["derive-wizard"]
+
+members = [
+    "derive-wizard",
+    "derive-wizard-macro",
+    "derive-wizard-types",
+    "example-wizard",
+]
