@@ -2,30 +2,20 @@
 
 pub mod backend;
 
-#[cfg(feature = "egui-backend")]
-pub mod egui_backend;
-
-#[cfg(feature = "dialoguer-backend")]
-pub mod dialoguer_backend;
-
-#[cfg(feature = "requestty-backend")]
-pub mod requestty_backend;
-
 pub use backend::{AnswerValue, Answers, BackendError, InterviewBackend, TestBackend};
 pub use derive_wizard_macro::*;
 pub use derive_wizard_types::{interview, question};
 
 #[cfg(feature = "requestty-backend")]
+pub use backend::requestty_backend::RequesttyBackend;
+#[cfg(feature = "requestty-backend")]
 pub use requestty::{ExpandItem, ListItem, Question, prompt_one};
 
-#[cfg(feature = "egui-backend")]
-pub use egui_backend::EguiBackend;
-
 #[cfg(feature = "dialoguer-backend")]
-pub use dialoguer_backend::DialoguerBackend;
+pub use backend::dialoguer_backend::DialoguerBackend;
 
-#[cfg(feature = "requestty-backend")]
-pub use requestty_backend::RequesttyBackend;
+#[cfg(feature = "egui-backend")]
+pub use backend::egui_backend::EguiBackend;
 
 pub trait Wizard: Sized {
     /// Get the interview structure for this type
@@ -44,6 +34,7 @@ pub trait Wizard: Sized {
 }
 
 /// Builder for configuring and executing a wizard
+#[derive(Default)]
 pub struct WizardBuilder<T: Wizard> {
     defaults: Option<T>,
     backend: Option<Box<dyn InterviewBackend>>,
@@ -73,6 +64,8 @@ impl<T: Wizard> WizardBuilder<T> {
     /// Execute the wizard and return the result
     #[cfg(feature = "requestty-backend")]
     pub fn build(self) -> T {
+        use crate::backend::requestty_backend::RequesttyBackend;
+
         let backend = self.backend.unwrap_or_else(|| Box::new(RequesttyBackend));
 
         let interview = if let Some(ref defaults) = self.defaults {
@@ -104,11 +97,5 @@ impl<T: Wizard> WizardBuilder<T> {
             .execute(&interview)
             .expect("Failed to execute interview");
         T::from_answers(&answers).expect("Failed to build from answers")
-    }
-}
-
-impl<T: Wizard> Default for WizardBuilder<T> {
-    fn default() -> Self {
-        Self::new()
     }
 }

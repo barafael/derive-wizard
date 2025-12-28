@@ -1,6 +1,15 @@
 use crate::interview::{Interview, Section};
 use std::collections::HashMap;
 
+#[cfg(feature = "requestty-backend")]
+pub mod requestty_backend;
+
+#[cfg(feature = "dialoguer-backend")]
+pub mod dialoguer_backend;
+
+#[cfg(feature = "egui-backend")]
+pub mod egui_backend;
+
 /// Represents the answers collected from an interview
 #[derive(Debug, Clone, Default)]
 pub struct Answers {

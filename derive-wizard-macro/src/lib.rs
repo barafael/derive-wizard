@@ -177,6 +177,7 @@ fn determine_question_kind(ty: &Type, attrs: &FieldAttrs) -> QuestionKind {
     if attrs.editor {
         return QuestionKind::Multiline(MultilineQuestion {
             default: None,
+            validate_on_key: attrs.validate_on_key.clone(),
             validate_on_submit: attrs.validate_on_submit.clone(),
         });
     }
@@ -434,10 +435,12 @@ fn generate_question_kind_code(kind: &QuestionKind) -> proc_macro2::TokenStream 
         }
         QuestionKind::Multiline(q) => {
             let default = opt_str!(&q.default);
+            let validate_on_key = opt_str!(&q.validate_on_key);
             let validate_on_submit = opt_str!(&q.validate_on_submit);
             quote! {
                 derive_wizard::question::QuestionKind::Multiline(derive_wizard::question::MultilineQuestion {
                     default: #default,
+                    validate_on_key: #validate_on_key,
                     validate_on_submit: #validate_on_submit,
                 })
             }
@@ -670,6 +673,10 @@ fn generate_question_with_default_code(
             }
         }
         QuestionKind::Multiline(q) => {
+            let validate_on_key = match &q.validate_on_key {
+                Some(v) => quote! { Some(#v.to_string()) },
+                None => quote! { None },
+            };
             let validate_on_submit = match &q.validate_on_submit {
                 Some(v) => quote! { Some(#v.to_string()) },
                 None => quote! { None },
@@ -677,6 +684,7 @@ fn generate_question_with_default_code(
             quote! {
                 derive_wizard::question::QuestionKind::Multiline(derive_wizard::question::MultilineQuestion {
                     default: Some(self.#field_name.clone()),
+                    validate_on_key: #validate_on_key,
                     validate_on_submit: #validate_on_submit,
                 })
             }

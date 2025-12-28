@@ -40,12 +40,6 @@ impl Question {
     }
 }
 
-impl From<Question> for QuestionKind {
-    fn from(question: Question) -> Self {
-        question.kind
-    }
-}
-
 /// Possible question kinds which a wizard may ask.
 #[derive(Debug, Clone)]
 pub enum QuestionKind {
@@ -96,6 +90,9 @@ pub struct InputQuestion {
 pub struct MultilineQuestion {
     /// Optional default value.
     pub default: Option<String>,
+
+    /// Validation function to call on each keystroke.
+    pub validate_on_key: Option<String>,
 
     /// Validation function to call on submission.
     pub validate_on_submit: Option<String>,

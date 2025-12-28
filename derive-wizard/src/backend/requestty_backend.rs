@@ -1,4 +1,3 @@
-#[cfg(feature = "requestty-backend")]
 use crate::backend::{AnswerValue, Answers, BackendError, InterviewBackend};
 use crate::interview::Section;
 use crate::question::{Question, QuestionKind};
