@@ -57,7 +57,7 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
                 #interview_with_defaults_code
             }
 
-            fn from_answers(answers: &derive_wizard::backend::Answers) -> Result<Self, derive_wizard::backend::BackendError> {
+            fn from_answers(answers: &derive_wizard::Answers) -> Result<Self, derive_wizard::backend::BackendError> {
                 #from_answers_code
             }
         }

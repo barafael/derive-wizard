@@ -1,6 +1,7 @@
-use crate::backend::{AnswerValue, Answers, BackendError, InterviewBackend};
+use crate::backend::{BackendError, InterviewBackend};
 use crate::interview::Section;
 use crate::question::{Question, QuestionKind};
+use crate::{AnswerValue, Answers};
 
 /// Requestty backend for interactive CLI prompts
 pub struct RequesttyBackend;

@@ -1,8 +1,10 @@
 #![doc = include_str!("../README.md")]
 
+pub mod answer;
 pub mod backend;
 
-pub use backend::{AnswerValue, Answers, BackendError, InterviewBackend, TestBackend};
+pub use answer::{AnswerError, AnswerValue, Answers};
+pub use backend::{BackendError, InterviewBackend, TestBackend};
 pub use derive_wizard_macro::*;
 pub use derive_wizard_types::{interview, question};
 
