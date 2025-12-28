@@ -36,18 +36,22 @@ fn main() {
     println!("Default values appear in [square brackets].");
     println!("Press Enter to accept a default, or type a new value.\n");
 
-    // Create initial settings
+    // Create initial settings with builder API
     let backend = derive_wizard::DialoguerBackend::new();
     println!("--- First Run: Create New Settings ---\n");
-    let settings = AppSettings::wizard_with_backend(&backend);
+    let settings = AppSettings::wizard_builder().with_backend(backend).build();
 
     println!("\n=== Settings Created ===");
     println!("{:#?}\n", settings);
 
-    // Edit existing settings with wizard_with_defaults
+    // Edit existing settings with defaults using builder API
     println!("--- Second Run: Edit Existing Settings ---");
     println!("The current values will be shown as defaults.\n");
-    let updated_settings = settings.wizard_with_defaults();
+    let backend = derive_wizard::DialoguerBackend::new();
+    let updated_settings = AppSettings::wizard_builder()
+        .with_defaults(settings)
+        .with_backend(backend)
+        .build();
 
     println!("\n=== Updated Settings ===");
     println!("{:#?}", updated_settings);

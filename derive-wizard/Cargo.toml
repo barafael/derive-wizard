@@ -40,3 +40,7 @@ required-features = ["dialoguer-backend"]
 [[example]]
 name = "dialoguer_password_demo"
 required-features = ["dialoguer-backend"]
+
+[[example]]
+name = "builder_egui"
+required-features = ["egui-backend"]

@@ -35,12 +35,12 @@ struct UserProfile {
 fn main() {
     println!("=== User Profile Wizard - egui Demo ===\n");
 
-    // Use the egui backend
+    // Use the egui backend with builder API
     let backend = derive_wizard::EguiBackend::new()
         .with_title("User Profile Wizard")
         .with_window_size([400.0, 300.0]);
 
-    let profile = UserProfile::wizard_with_backend(&backend);
+    let profile = UserProfile::wizard_builder().with_backend(backend).build();
 
     println!("\n=== Profile Created ===");
     println!("{:#?}", profile);

@@ -52,17 +52,12 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
                 #interview_code
             }
 
-            fn from_answers(answers: &derive_wizard::backend::Answers) -> Result<Self, derive_wizard::backend::BackendError> {
-                #from_answers_code
+            fn interview_with_defaults(&self) -> derive_wizard::interview::Interview {
+                #interview_with_defaults_code
             }
 
-            fn wizard_with_defaults(self) -> Self {
-                use derive_wizard::InterviewBackend;
-                let interview = #interview_with_defaults_code;
-                let answers = derive_wizard::RequesttyBackend
-                    .execute(&interview)
-                    .expect("Failed to execute interview");
-                Self::from_answers(&answers).expect("Failed to build from answers")
+            fn from_answers(answers: &derive_wizard::backend::Answers) -> Result<Self, derive_wizard::backend::BackendError> {
+                #from_answers_code
             }
         }
     })

@@ -37,6 +37,6 @@ enum PaymentMethod {
 }
 
 fn main() {
-    let order = Order::wizard();
+    let order = Order::wizard_builder().build();
     println!("{:#?}", order);
 }

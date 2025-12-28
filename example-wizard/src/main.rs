@@ -46,11 +46,11 @@ enum Gender {
 
 fn main() {
     println!("=== Creating a new configuration ===");
-    let config = ShowCase::wizard();
+    let config = ShowCase::wizard_builder().build();
     println!("Config: {config:#?}\n");
 
     println!("=== Editing the configuration with defaults ===");
     println!("The current values will be pre-filled. Press Enter to keep them or type new values.");
-    let updated_config = config.wizard_with_defaults();
+    let updated_config = ShowCase::wizard_builder().with_defaults(config).build();
     println!("Updated Config: {updated_config:#?}");
 }

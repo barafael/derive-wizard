@@ -1,7 +1,7 @@
 use derive_wizard::Wizard;
 
-/// This example demonstrates the simplified egui backend usage.
-/// Compare this to the dialoguer_defaults_demo to see how concise it is!
+/// This example demonstrates how defaults work with the egui backend.
+/// The egui backend shows default values as placeholder text (hint text) in text fields.
 #[derive(Debug, Clone, Wizard)]
 struct AppSettings {
     #[prompt("Application name:")]
@@ -30,15 +30,34 @@ struct AppSettings {
 }
 
 fn main() {
-    println!("=== Application Settings - egui Demo ===\n");
+    println!("=== Application Settings - egui Defaults Demo ===\n");
+    println!("This demo shows how to use the builder API with defaults.");
+    println!("First, create initial settings, then edit them with defaults.\n");
 
-    // Use the egui backend
+    // First run: Create initial settings
+    println!("--- First Run: Create New Settings ---");
     let backend = derive_wizard::EguiBackend::new()
-        .with_title("Application Settings")
+        .with_title("Application Settings - New")
         .with_window_size([500.0, 450.0]);
 
-    let settings = AppSettings::wizard_with_backend(&backend);
+    let settings = AppSettings::wizard_builder().with_backend(backend).build();
 
     println!("\n=== Settings Created ===");
-    println!("{:#?}", settings);
+    println!("{:#?}\n", settings);
+
+    // Second run: Edit existing settings with defaults
+    println!("--- Second Run: Edit Existing Settings ---");
+    println!("The current values will be shown as defaults (placeholders).\n");
+
+    let backend = derive_wizard::EguiBackend::new()
+        .with_title("Application Settings - Edit")
+        .with_window_size([500.0, 450.0]);
+
+    let updated_settings = AppSettings::wizard_builder()
+        .with_defaults(settings)
+        .with_backend(backend)
+        .build();
+
+    println!("\n=== Updated Settings ===");
+    println!("{:#?}", updated_settings);
 }

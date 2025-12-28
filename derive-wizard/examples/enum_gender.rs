@@ -48,6 +48,6 @@ enum Gender {
 }
 
 fn main() {
-    let magic = ShowCase::wizard();
+    let magic = ShowCase::wizard_builder().build();
     println!("Config: {magic:#?}");
 }

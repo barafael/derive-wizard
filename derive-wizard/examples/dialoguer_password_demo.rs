@@ -47,7 +47,9 @@ fn main() {
     println!("Passwords and sensitive fields are masked with asterisks.\n");
 
     let backend = derive_wizard::DialoguerBackend::new();
-    let config = ServiceConfig::wizard_with_backend(&backend);
+    let config = ServiceConfig::wizard_builder()
+        .with_backend(backend)
+        .build();
 
     println!("\n=== Configuration Created ===");
     println!("{:#?}", config);
