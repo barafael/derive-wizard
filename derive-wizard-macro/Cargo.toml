@@ -13,4 +13,3 @@ derive-wizard-types = { version = "0.1", path = "../derive-wizard-types" }
 proc-macro2 = "1"
 quote = "1"
 syn = "2"
-thiserror = "2"

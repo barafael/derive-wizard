@@ -8,8 +8,6 @@ pub use derive_wizard_types::{interview, question};
 
 #[cfg(feature = "requestty-backend")]
 pub use backend::requestty_backend::RequesttyBackend;
-#[cfg(feature = "requestty-backend")]
-pub use requestty::{ExpandItem, ListItem, Question, prompt_one};
 
 #[cfg(feature = "dialoguer-backend")]
 pub use backend::dialoguer_backend::DialoguerBackend;
