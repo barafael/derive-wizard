@@ -820,7 +820,7 @@ checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
 
 [[package]]
 name = "derive-wizard"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "derive-wizard-macro",
  "derive-wizard-types",
@@ -833,7 +833,7 @@ dependencies = [
 
 [[package]]
 name = "derive-wizard-macro"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "derive-wizard-types",
  "proc-macro2",
@@ -843,7 +843,7 @@ dependencies = [
 
 [[package]]
 name = "derive-wizard-types"
-version = "0.3.0"
+version = "0.4.0"
 
 [[package]]
 name = "derive_more"
@@ -1170,7 +1170,7 @@ dependencies = [
 
 [[package]]
 name = "example-wizard"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "derive-wizard",
 ]
