@@ -38,6 +38,70 @@ impl Question {
     pub fn kind(&self) -> &QuestionKind {
         &self.kind
     }
+
+    pub fn kind_mut(&mut self) -> &mut QuestionKind {
+        &mut self.kind
+    }
+
+    /// Set the default value for this question based on its kind.
+    /// Returns true if the default was set, false if the question kind doesn't support defaults.
+    pub fn set_default(&mut self, value: impl Into<QuestionDefault>) -> bool {
+        match (&mut self.kind, value.into()) {
+            (QuestionKind::Input(q), QuestionDefault::String(v)) => {
+                q.default = Some(v);
+                true
+            }
+            (QuestionKind::Multiline(q), QuestionDefault::String(v)) => {
+                q.default = Some(v);
+                true
+            }
+            (QuestionKind::Int(q), QuestionDefault::Int(v)) => {
+                q.default = Some(v);
+                true
+            }
+            (QuestionKind::Float(q), QuestionDefault::Float(v)) => {
+                q.default = Some(v);
+                true
+            }
+            (QuestionKind::Confirm(q), QuestionDefault::Bool(v)) => {
+                q.default = v;
+                true
+            }
+            _ => false,
+        }
+    }
+}
+
+/// Represents a default value that can be set on a question.
+pub enum QuestionDefault {
+    String(String),
+    Int(i64),
+    Float(f64),
+    Bool(bool),
+}
+
+impl From<String> for QuestionDefault {
+    fn from(v: String) -> Self {
+        QuestionDefault::String(v)
+    }
+}
+
+impl From<i64> for QuestionDefault {
+    fn from(v: i64) -> Self {
+        QuestionDefault::Int(v)
+    }
+}
+
+impl From<f64> for QuestionDefault {
+    fn from(v: f64) -> Self {
+        QuestionDefault::Float(v)
+    }
+}
+
+impl From<bool> for QuestionDefault {
+    fn from(v: bool) -> Self {
+        QuestionDefault::Bool(v)
+    }
 }
 
 /// Possible question kinds which a wizard may ask.
