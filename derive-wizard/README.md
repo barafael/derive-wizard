@@ -190,14 +190,14 @@ The `#[derive(Wizard)]` macro supports all 11 requestty question types:
 4. **confirm** - Yes/No confirmation prompt (default for bool)
 5. **int** - Integer input (default for integer types)
 6. **float** - Floating point input (default for float types)
-7. **select** - Single selection from a list (default for ListItem)
-8. **expand** - Single selection with keyboard shortcuts (default for ExpandItem)
-9. **multi_select** - Multiple selection from a list (default for `Vec<ListItem>`)
+7. **select** - Single selection from a list (default for `ListItem`)
+8. **expand** - Single selection with keyboard shortcuts (default for `ExpandItem`)
+9. **`multi_select`** - Multiple selection from a list (default for `Vec<ListItem>`)
 
 Note: The following question types are available in requestty but not currently exposed through attributes:
 
-- **raw_select** - Single selection with index-based input
-- **order_select** - Reorder items in a list
+- **`raw_select`** - Single selection with index-based input
+- **`order_select`** - Reorder items in a list
 
 ## License
 
