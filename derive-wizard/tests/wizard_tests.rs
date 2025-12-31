@@ -1,6 +1,6 @@
 use derive_wizard::{TestBackend, Wizard};
 
-#[derive(Debug, PartialEq, Wizard)]
+#[derive(Debug, PartialEq, Clone, Wizard)]
 struct BasicUser {
     name: String,
     age: i64,
@@ -224,22 +224,25 @@ fn test_multiple_numeric_types() {
     assert!((result.small_float - 2.72).abs() < 0.001);
 }
 
-#[derive(Debug, PartialEq, Wizard)]
+#[derive(Debug, PartialEq, Clone, Wizard)]
 struct Config {
     debug_mode: bool,
-    verbose: bool,
+    port: i64,
+    host: String,
 }
 
 #[test]
 fn test_boolean_fields() {
     let backend = TestBackend::new()
         .with_bool("debug_mode", true)
-        .with_bool("verbose", false);
+        .with_int("port", 3000)
+        .with_string("host", "0.0.0.0");
 
     let result = Config::wizard_builder().with_backend(backend).build();
 
     assert!(result.debug_mode);
-    assert!(!result.verbose);
+    assert_eq!(result.port, 3000);
+    assert_eq!(result.host, "0.0.0.0");
 }
 
 #[derive(Debug, PartialEq, Wizard)]
@@ -339,4 +342,120 @@ fn test_large_numbers() {
     assert_eq!(result.float_val, f64::MAX);
     assert_eq!(result.small_int, i32::MAX);
     assert!((result.small_float - f32::MAX).abs() < 1.0);
+}
+
+#[test]
+fn test_assumptions_skip_questions() {
+    // Create a config with some values
+    let _initial_config = Config {
+        debug_mode: true,
+        port: 8080,
+        host: "localhost".to_string(),
+    };
+
+    // Use assumptions - should not require any user input
+    // The TestBackend doesn't provide any answers, but assumptions should fill them in
+    let backend = TestBackend::new();
+
+    let result = Config::wizard_builder()
+        .assume_field("debug_mode", true)
+        .assume_field("port", 8080)
+        .assume_field("host", "localhost".to_string())
+        .with_backend(backend)
+        .build();
+
+    // Verify the result matches the assumptions
+    assert!(result.debug_mode);
+    assert_eq!(result.port, 8080);
+    assert_eq!(result.host, "localhost");
+}
+
+#[test]
+fn test_assumptions_vs_suggestions() {
+    // Test that assumptions take precedence over suggestions
+    let _assumptions = BasicUser {
+        name: "Assumed Name".to_string(),
+        age: 100,
+        active: true,
+    };
+
+    let suggestions = BasicUser {
+        name: "Suggested Name".to_string(),
+        age: 50,
+        active: false,
+    };
+
+    let backend = TestBackend::new();
+
+    let result = BasicUser::wizard_builder()
+        .with_suggestions(suggestions)
+        .assume_field("name", "Assumed Name".to_string())
+        .assume_field("age", 100)
+        .assume_field("active", true)
+        .with_backend(backend)
+        .build();
+
+    // Assumptions should take precedence
+    assert_eq!(result.name, "Assumed Name");
+    assert_eq!(result.age, 100);
+    assert!(result.active);
+}
+
+#[test]
+fn test_partial_assumptions() {
+    // Test that we can assume some fields and still ask about others
+    let _partial = BasicUser {
+        name: "Fixed Name".to_string(),
+        age: 30,
+        active: true,
+    };
+
+    // Provide an answer for the field we want to change
+    let backend = TestBackend::new().with_string("name", "Override Name"); // This should NOT override the assumption
+
+    let result = BasicUser::wizard_builder()
+        .assume_field("name", "Fixed Name".to_string())
+        .assume_field("age", 30)
+        .assume_field("active", true)
+        .with_backend(backend)
+        .build();
+
+    // The assumption should win
+    assert_eq!(result.name, "Fixed Name");
+    assert_eq!(result.age, 30);
+    assert!(result.active);
+}
+
+#[test]
+fn test_assume_field() {
+    // Test the assume_field API - only assume specific fields
+    let backend = TestBackend::new()
+        .with_string("name", "Alice") // Will be asked
+        .with_int("age", 25); // Will be asked
+    // Note: 'active' is assumed, so we don't provide an answer for it
+
+    let result = BasicUser::wizard_builder()
+        .assume_field("active", true) // Only assume this field
+        .with_backend(backend)
+        .build();
+
+    assert_eq!(result.name, "Alice");
+    assert_eq!(result.age, 25);
+    assert!(result.active); // This was assumed, not asked
+}
+
+#[test]
+fn test_multiple_assume_fields() {
+    // Test assuming multiple individual fields
+    let backend = TestBackend::new().with_string("host", "localhost"); // Only this will be asked
+
+    let result = Config::wizard_builder()
+        .assume_field("debug_mode", true)
+        .assume_field("port", 8080)
+        .with_backend(backend)
+        .build();
+
+    assert!(result.debug_mode);
+    assert_eq!(result.port, 8080);
+    assert_eq!(result.host, "localhost");
 }

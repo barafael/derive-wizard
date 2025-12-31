@@ -167,6 +167,39 @@ When `with_suggestions()` is used:
 - For **bool** fields: the current value is pre-selected
 - For **password** (`#[mask]`) and **editor** (`#[editor]`) fields: suggestions are shown as hints (backend-dependent)
 
+### Using Assumptions
+
+Assumptions are different from suggestions - they completely skip the questions and use the provided values directly. Use `assume_field()` to set specific fields while still asking about others:
+
+```rust,no_run
+use derive_wizard::Wizard;
+
+# #[derive(Debug, Clone, Wizard)]
+# struct Config {
+#     #[prompt("Enter the server address:")]
+#     server: String,
+#     #[prompt("Enter the port:")]
+#     port: u16,
+#     #[prompt("Enable SSL?")]
+#     use_ssl: bool,
+# }
+// Assume specific fields, ask about the rest
+let config = Config::wizard_builder()
+    .assume_field("use_ssl", true)      // Always use SSL in production
+    .assume_field("port", 443)           // Standard HTTPS port
+    .build();  // Will only ask about 'server'
+```
+
+**Key differences:**
+
+- **Suggestions** (`with_suggestions()`): Questions are asked, but with pre-filled default values
+- **Assumptions** (`assume_field()`): Questions are skipped entirely, values are used as-is
+
+Assumptions are useful for:
+- Enforcing security policies (e.g., always enable SSL in production)
+- Providing sensible defaults that users shouldn't change
+- Batch processing with some fixed and some variable fields
+
 ## Supported Question Types
 
 The `#[derive(Wizard)]` macro supports all 11 requestty question types:

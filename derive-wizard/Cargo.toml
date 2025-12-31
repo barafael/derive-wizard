@@ -22,23 +22,27 @@ egui-backend = ["egui", "eframe"]
 dialoguer-backend = ["dialoguer"]
 
 [[example]]
-name = "egui_demo"
+name = "egui_backend"
 required-features = ["egui-backend"]
 
 [[example]]
-name = "egui_suggestions_demo"
+name = "egui_backend_suggestions"
 required-features = ["egui-backend"]
 
 [[example]]
-name = "dialoguer_demo"
+name = "egui_backend_assumptions_and_suggestions"
+required-features = ["egui-backend"]
+
+[[example]]
+name = "dialoguer_backend"
 required-features = ["dialoguer-backend"]
 
 [[example]]
-name = "dialoguer_suggestions_demo"
+name = "dialoguer_backend_suggestions"
 required-features = ["dialoguer-backend"]
 
 [[example]]
-name = "dialoguer_password_demo"
+name = "dialoguer_backend_password"
 required-features = ["dialoguer-backend"]
 
 [[example]]

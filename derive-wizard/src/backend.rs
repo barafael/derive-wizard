@@ -67,8 +67,24 @@ impl TestBackend {
 }
 
 impl InterviewBackend for TestBackend {
-    fn execute(&self, _interview: &Interview) -> Result<Answers, BackendError> {
-        // Simply return the predefined answers
-        Ok(self.answers.clone())
+    fn execute(&self, interview: &Interview) -> Result<Answers, BackendError> {
+        use derive_wizard_types::default::AssumedAnswer;
+
+        let mut answers = self.answers.clone();
+
+        // Add assumed answers from the interview
+        for question in &interview.sections {
+            if let Some(assumed) = question.assumed() {
+                let value = match assumed {
+                    AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
+                    AssumedAnswer::Int(i) => AnswerValue::Int(*i),
+                    AssumedAnswer::Float(f) => AnswerValue::Float(*f),
+                    AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
+                };
+                answers.insert(question.name().to_string(), value);
+            }
+        }
+
+        Ok(answers)
     }
 }

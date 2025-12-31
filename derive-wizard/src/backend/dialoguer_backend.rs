@@ -177,9 +177,23 @@ impl Default for DialoguerBackend {
 
 impl InterviewBackend for DialoguerBackend {
     fn execute(&self, interview: &Interview) -> Result<Answers, BackendError> {
+        use derive_wizard_types::default::AssumedAnswer;
+
         let mut answers = Answers::new();
 
         for question in &interview.sections {
+            // Check if question has an assumption - if so, use it and skip prompting
+            if let Some(assumed) = question.assumed() {
+                let value = match assumed {
+                    AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
+                    AssumedAnswer::Int(i) => AnswerValue::Int(*i),
+                    AssumedAnswer::Float(f) => AnswerValue::Float(*f),
+                    AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
+                };
+                answers.insert(question.name().to_string(), value);
+                continue;
+            }
+
             self.execute_question(question, &mut answers)?;
         }
 

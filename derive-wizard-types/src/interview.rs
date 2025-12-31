@@ -1,4 +1,4 @@
-use crate::default::SuggestedAnswer;
+use crate::default::{AssumedAnswer, SuggestedAnswer};
 
 /// A sequence of sections, which contain questions.
 #[derive(Debug, Clone)]
@@ -18,6 +18,9 @@ pub struct Question {
     prompt: String,
 
     kind: QuestionKind,
+
+    /// An assumed answer that causes this question to be skipped.
+    assumed: Option<AssumedAnswer>,
 }
 
 impl Question {
@@ -28,6 +31,7 @@ impl Question {
             name,
             prompt,
             kind,
+            assumed: None,
         }
     }
 
@@ -45,6 +49,10 @@ impl Question {
 
     pub fn kind(&self) -> &QuestionKind {
         &self.kind
+    }
+
+    pub fn assumed(&self) -> Option<&AssumedAnswer> {
+        self.assumed.as_ref()
     }
 
     /// Set the suggested value for this question based on its kind.
@@ -67,6 +75,11 @@ impl Question {
             }
             _ => {}
         }
+    }
+
+    /// Set an assumed value for this question, causing it to be skipped in the interview.
+    pub fn set_assumption(&mut self, value: impl Into<AssumedAnswer>) {
+        self.assumed = Some(value.into());
     }
 }
 

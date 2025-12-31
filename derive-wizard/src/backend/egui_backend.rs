@@ -46,6 +46,29 @@ impl Default for EguiBackend {
 
 impl InterviewBackend for EguiBackend {
     fn execute(&self, interview: &Interview) -> Result<Answers, BackendError> {
+        use derive_wizard_types::default::AssumedAnswer;
+
+        let mut answers = Answers::new();
+
+        // First, collect all assumed answers
+        for question in &interview.sections {
+            if let Some(assumed) = question.assumed() {
+                let value = match assumed {
+                    AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
+                    AssumedAnswer::Int(i) => AnswerValue::Int(*i),
+                    AssumedAnswer::Float(f) => AnswerValue::Float(*f),
+                    AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
+                };
+                answers.insert(question.name().to_string(), value);
+            }
+        }
+
+        // Check if all questions have assumptions - if so, skip the GUI
+        let all_assumed = interview.sections.iter().all(|q| q.assumed().is_some());
+        if all_assumed {
+            return Ok(answers);
+        }
+
         // Create a channel to get the result back from the GUI
         let (tx, rx) = std::sync::mpsc::channel();
 
@@ -65,9 +88,14 @@ impl InterviewBackend for EguiBackend {
         );
 
         // Get the result from the channel
-        rx.recv().map_err(|e| {
+        let mut gui_answers = rx.recv().map_err(|e| {
             BackendError::ExecutionError(format!("GUI closed without result: {}", e))
-        })?
+        })??;
+
+        // Merge assumed answers with GUI answers (assumptions take precedence)
+        gui_answers.merge(answers);
+
+        Ok(gui_answers)
     }
 }
 
@@ -130,6 +158,10 @@ impl EguiWizardApp {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let questions: Vec<_> = self.interview.sections.clone();
                 for (question_idx, question) in questions.iter().enumerate() {
+                    // Skip questions that have assumptions
+                    if question.assumed().is_some() {
+                        continue;
+                    }
                     self.show_question_recursive(ui, question, question_idx);
                     ui.add_space(15.0);
                 }

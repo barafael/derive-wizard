@@ -37,6 +37,8 @@ pub trait Wizard: Sized {
 #[derive(Default)]
 pub struct WizardBuilder<T: Wizard> {
     suggestions: Option<T>,
+    partial_assumptions:
+        std::collections::HashMap<String, derive_wizard_types::default::AssumedAnswer>,
     backend: Option<Box<dyn InterviewBackend>>,
 }
 
@@ -45,6 +47,7 @@ impl<T: Wizard> WizardBuilder<T> {
     pub fn new() -> Self {
         Self {
             suggestions: None,
+            partial_assumptions: std::collections::HashMap::new(),
             backend: None,
         }
     }
@@ -52,6 +55,16 @@ impl<T: Wizard> WizardBuilder<T> {
     /// Set suggested values for the wizard
     pub fn with_suggestions(mut self, suggestions: T) -> Self {
         self.suggestions = Some(suggestions);
+        self
+    }
+
+    /// Assume a specific field value. The question for this field will be skipped.
+    pub fn assume_field(
+        mut self,
+        field: impl Into<String>,
+        value: impl Into<derive_wizard_types::default::AssumedAnswer>,
+    ) -> Self {
+        self.partial_assumptions.insert(field.into(), value.into());
         self
     }
 
@@ -68,12 +81,21 @@ impl<T: Wizard> WizardBuilder<T> {
 
         let backend = self.backend.unwrap_or_else(|| Box::new(RequesttyBackend));
 
-        let interview = self
-            .suggestions
-            .as_ref()
-            .map_or_else(T::interview, |suggestions| {
-                suggestions.interview_with_suggestions()
-            });
+        let mut interview = match &self.suggestions {
+            Some(suggestions) => suggestions.interview_with_suggestions(),
+            None => T::interview(),
+        };
+
+        // Apply partial assumptions
+        for (field_name, value) in self.partial_assumptions {
+            if let Some(question) = interview
+                .sections
+                .iter_mut()
+                .find(|q| q.name() == field_name)
+            {
+                question.set_assumption(value);
+            }
+        }
 
         let answers = backend
             .execute(&interview)
@@ -88,11 +110,21 @@ impl<T: Wizard> WizardBuilder<T> {
             .backend
             .expect("No backend specified and requestty-backend feature is not enabled");
 
-        let interview = if let Some(ref suggestions) = self.suggestions {
-            suggestions.interview_with_suggestions()
-        } else {
-            T::interview()
+        let mut interview = match &self.suggestions {
+            Some(suggestions) => suggestions.interview_with_suggestions(),
+            None => T::interview(),
         };
+
+        // Apply partial assumptions
+        for (field_name, value) in self.partial_assumptions {
+            if let Some(question) = interview
+                .sections
+                .iter_mut()
+                .find(|q| q.name() == field_name)
+            {
+                question.set_assumption(value);
+            }
+        }
 
         let answers = backend
             .execute(&interview)
