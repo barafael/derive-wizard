@@ -68,11 +68,10 @@ impl<T: Wizard> WizardBuilder<T> {
 
         let backend = self.backend.unwrap_or_else(|| Box::new(RequesttyBackend));
 
-        let interview = if let Some(ref defaults) = self.defaults {
-            defaults.interview_with_defaults()
-        } else {
-            T::interview()
-        };
+        let interview = self
+            .defaults
+            .as_ref()
+            .map_or_else(T::interview, |defaults| defaults.interview_with_defaults());
 
         let answers = backend
             .execute(&interview)

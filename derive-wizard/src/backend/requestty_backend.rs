@@ -15,7 +15,7 @@ impl RequesttyBackend {
         question: &Question,
         answers: &mut Answers,
     ) -> Result<(), BackendError> {
-        let id = question.id().unwrap_or(question.name());
+        let id = question.id().unwrap_or_else(|| question.name());
 
         match question.kind() {
             QuestionKind::Input(input_q) => {
