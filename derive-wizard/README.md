@@ -167,6 +167,32 @@ When `with_suggestions()` is used:
 - For **bool** fields: the current value is pre-selected
 - For **password** (`#[mask]`) and **editor** (`#[editor]`) fields: suggestions are shown as hints (backend-dependent)
 
+### Suggesting Individual Fields
+
+Instead of providing a complete struct with `with_suggestions()`, you can suggest values for specific fields using `suggest_field()`:
+
+```rust,no_run
+use derive_wizard::Wizard;
+
+# #[derive(Debug, Clone, Wizard)]
+# struct Config {
+#     #[prompt("Enter the server address:")]
+#     server: String,
+#     #[prompt("Enter the port:")]
+#     port: u16,
+#     #[prompt("Enable SSL?")]
+#     use_ssl: bool,
+# }
+// Suggest specific fields, ask about all of them
+let config = Config::wizard_builder()
+    .suggest_field("server", "localhost".to_string())
+    .suggest_field("port", 8080)
+    .suggest_field("use_ssl", false)
+    .build();  // All questions asked with pre-filled defaults
+```
+
+This is useful when you want to provide defaults for specific fields without needing to construct an entire struct.
+
 ### Using Assumptions
 
 Assumptions are different from suggestions - they completely skip the questions and use the provided values directly. Use `assume_field()` to set specific fields while still asking about others:
@@ -192,8 +218,29 @@ let config = Config::wizard_builder()
 
 **Key differences:**
 
-- **Suggestions** (`with_suggestions()`): Questions are asked, but with pre-filled default values
+- **Suggestions** (`with_suggestions()` or `suggest_field()`): Questions are asked, but with pre-filled default values
 - **Assumptions** (`assume_field()`): Questions are skipped entirely, values are used as-is
+
+You can also combine both approaches:
+
+```rust,no_run
+use derive_wizard::Wizard;
+
+# #[derive(Debug, Clone, Wizard)]
+# struct Config {
+#     #[prompt("Enter the server address:")]
+#     server: String,
+#     #[prompt("Enter the port:")]
+#     port: u16,
+#     #[prompt("Enable SSL?")]
+#     use_ssl: bool,
+# }
+let config = Config::wizard_builder()
+    .suggest_field("server", "localhost".to_string())  // Suggest (will ask)
+    .assume_field("use_ssl", true)                      // Assume (will skip)
+    .assume_field("port", 443)                          // Assume (will skip)
+    .build();  // Only asks about 'server' with "localhost" as default
+```
 
 Assumptions are useful for:
 - Enforcing security policies (e.g., always enable SSL in production)

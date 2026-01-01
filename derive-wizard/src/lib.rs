@@ -37,6 +37,8 @@ pub trait Wizard: Sized {
 #[derive(Default)]
 pub struct WizardBuilder<T: Wizard> {
     suggestions: Option<T>,
+    partial_suggestions:
+        std::collections::HashMap<String, derive_wizard_types::default::SuggestedAnswer>,
     partial_assumptions:
         std::collections::HashMap<String, derive_wizard_types::default::AssumedAnswer>,
     backend: Option<Box<dyn InterviewBackend>>,
@@ -47,6 +49,7 @@ impl<T: Wizard> WizardBuilder<T> {
     pub fn new() -> Self {
         Self {
             suggestions: None,
+            partial_suggestions: std::collections::HashMap::new(),
             partial_assumptions: std::collections::HashMap::new(),
             backend: None,
         }
@@ -55,6 +58,16 @@ impl<T: Wizard> WizardBuilder<T> {
     /// Set suggested values for the wizard
     pub fn with_suggestions(mut self, suggestions: T) -> Self {
         self.suggestions = Some(suggestions);
+        self
+    }
+
+    /// Suggest a specific field value. The question will still be asked but with a pre-filled default.
+    pub fn suggest_field(
+        mut self,
+        field: impl Into<String>,
+        value: impl Into<derive_wizard_types::default::SuggestedAnswer>,
+    ) -> Self {
+        self.partial_suggestions.insert(field.into(), value.into());
         self
     }
 
@@ -86,6 +99,17 @@ impl<T: Wizard> WizardBuilder<T> {
             None => T::interview(),
         };
 
+        // Apply partial suggestions
+        for (field_name, value) in self.partial_suggestions {
+            if let Some(question) = interview
+                .sections
+                .iter_mut()
+                .find(|q| q.name() == field_name)
+            {
+                question.set_suggestion(value);
+            }
+        }
+
         // Apply partial assumptions
         for (field_name, value) in self.partial_assumptions {
             if let Some(question) = interview
@@ -114,6 +138,17 @@ impl<T: Wizard> WizardBuilder<T> {
             Some(suggestions) => suggestions.interview_with_suggestions(),
             None => T::interview(),
         };
+
+        // Apply partial suggestions
+        for (field_name, value) in self.partial_suggestions {
+            if let Some(question) = interview
+                .sections
+                .iter_mut()
+                .find(|q| q.name() == field_name)
+            {
+                question.set_suggestion(value);
+            }
+        }
 
         // Apply partial assumptions
         for (field_name, value) in self.partial_assumptions {

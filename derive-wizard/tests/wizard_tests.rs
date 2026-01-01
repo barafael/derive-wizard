@@ -371,6 +371,67 @@ fn test_assumptions_skip_questions() {
 }
 
 #[test]
+fn test_suggest_field() {
+    // Test the suggest_field API - questions are asked but with pre-filled defaults
+    let backend = TestBackend::new()
+        .with_string("name", "Bob") // User can override the suggestion
+        .with_int("age", 30)
+        .with_bool("active", false);
+
+    let result = BasicUser::wizard_builder()
+        .suggest_field("name", "Alice".to_string()) // Suggest but don't assume
+        .suggest_field("age", 25)
+        .with_backend(backend)
+        .build();
+
+    // The backend's answers should win over suggestions
+    assert_eq!(result.name, "Bob");
+    assert_eq!(result.age, 30);
+    assert!(!result.active);
+}
+
+#[test]
+fn test_multiple_suggest_fields() {
+    // Test suggesting multiple individual fields
+    let backend = TestBackend::new()
+        .with_string("host", "production.example.com") // Override suggestion
+        .with_int("port", 443) // Override suggestion
+        .with_bool("debug_mode", false); // Override suggestion
+
+    let result = Config::wizard_builder()
+        .suggest_field("host", "localhost".to_string())
+        .suggest_field("port", 8080)
+        .suggest_field("debug_mode", true)
+        .with_backend(backend)
+        .build();
+
+    // Backend answers should override suggestions
+    assert_eq!(result.host, "production.example.com");
+    assert_eq!(result.port, 443);
+    assert!(!result.debug_mode);
+}
+
+#[test]
+fn test_suggest_field_vs_assume_field() {
+    // Test that assumptions and suggestions work together
+    let backend = TestBackend::new()
+        .with_string("name", "Charlie") // This will be asked (suggested)
+        .with_int("age", 35); // This will be asked (suggested)
+    // Note: 'active' is assumed, so it won't be asked
+
+    let result = BasicUser::wizard_builder()
+        .suggest_field("name", "Suggested Name".to_string()) // Suggestion - will ask
+        .suggest_field("age", 99) // Suggestion - will ask
+        .assume_field("active", true) // Assumption - will skip
+        .with_backend(backend)
+        .build();
+
+    assert_eq!(result.name, "Charlie"); // User input overrides suggestion
+    assert_eq!(result.age, 35); // User input overrides suggestion
+    assert!(result.active); // Assumed value, not asked
+}
+
+#[test]
 fn test_assumptions_vs_suggestions() {
     // Test that assumptions take precedence over suggestions
     let _assumptions = BasicUser {
