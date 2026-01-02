@@ -119,7 +119,7 @@ impl InterviewState {
     fn get_or_init_buffer(&mut self, key: &str) -> &mut String {
         self.input_buffers
             .entry(key.to_string())
-            .or_insert_with(String::new)
+            .or_default()
     }
 }
 
@@ -170,15 +170,13 @@ impl EguiWizardApp {
                 ui.add_space(10.0);
 
                 // Submit button at the bottom
-                if ui.button("Submit").clicked() {
-                    if let Some(answers) = self.validate_and_collect() {
-                        if let Some(tx) = self.result_sender.take() {
+                if ui.button("Submit").clicked()
+                    && let Some(answers) = self.validate_and_collect()
+                        && let Some(tx) = self.result_sender.take() {
                             let _ = tx.send(Ok(answers));
                             self.completed = true;
                             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                         }
-                    }
-                }
 
                 // Show validation errors
                 if !self.state.validation_errors.is_empty() {
@@ -229,9 +227,9 @@ impl EguiWizardApp {
                 ui.add_space(10.0);
 
                 // Show follow-up questions for selected alternative
-                if let Some(alt) = alternatives.get(selected) {
-                    if let QuestionKind::Alternative(_, alts) = alt.kind() {
-                        if !alts.is_empty() {
+                if let Some(alt) = alternatives.get(selected)
+                    && let QuestionKind::Alternative(_, alts) = alt.kind()
+                        && !alts.is_empty() {
                             ui.group(|ui| {
                                 ui.label(format!("Details for '{}':", alt.name()));
                                 ui.add_space(5.0);
@@ -245,8 +243,6 @@ impl EguiWizardApp {
                                 }
                             });
                         }
-                    }
-                }
             }
             _ => {
                 self.show_question(ui, question);

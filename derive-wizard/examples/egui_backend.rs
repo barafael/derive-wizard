@@ -1,6 +1,7 @@
 use derive_wizard::Wizard;
 
 #[derive(Debug, Wizard)]
+#[allow(unused)]
 enum Gender {
     Male,
     Female,
@@ -8,6 +9,7 @@ enum Gender {
 }
 
 #[derive(Debug, Wizard)]
+#[allow(unused)]
 struct UserProfile {
     #[prompt("Enter your name:")]
     name: String,

@@ -65,16 +65,14 @@ impl DialoguerBackend {
                     let min = int_q.min;
                     let max = int_q.max;
                     input = input.validate_with(move |value: &i64| -> Result<(), String> {
-                        if let Some(min_val) = min {
-                            if *value < min_val {
+                        if let Some(min_val) = min
+                            && *value < min_val {
                                 return Err(format!("Value must be at least {}", min_val));
                             }
-                        }
-                        if let Some(max_val) = max {
-                            if *value > max_val {
+                        if let Some(max_val) = max
+                            && *value > max_val {
                                 return Err(format!("Value must be at most {}", max_val));
                             }
-                        }
                         Ok(())
                     });
                 }
@@ -97,16 +95,14 @@ impl DialoguerBackend {
                     let min = float_q.min;
                     let max = float_q.max;
                     input = input.validate_with(move |value: &f64| -> Result<(), String> {
-                        if let Some(min_val) = min {
-                            if *value < min_val {
+                        if let Some(min_val) = min
+                            && *value < min_val {
                                 return Err(format!("Value must be at least {}", min_val));
                             }
-                        }
-                        if let Some(max_val) = max {
-                            if *value > max_val {
+                        if let Some(max_val) = max
+                            && *value > max_val {
                                 return Err(format!("Value must be at most {}", max_val));
                             }
-                        }
                         Ok(())
                     });
                 }
