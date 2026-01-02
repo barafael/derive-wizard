@@ -15,12 +15,12 @@ struct ServerConfig {
 }
 
 fn main() {
-    println!("=== Builder API Demo ===\n");
+    println!("=== Builder API Demo ===");
 
     // Example 1: Simple builder with default backend
     println!("Example 1: Using default backend");
     let config1 = ServerConfig::wizard_builder().build();
-    println!("Config: {:#?}\n", config1);
+    println!("Config: {:#?}", config1);
 
     // Example 2: Builder with custom backend (dialoguer)
     #[cfg(feature = "dialoguer-backend")]
@@ -28,7 +28,7 @@ fn main() {
         println!("Example 2: Using dialoguer backend");
         let backend = derive_wizard::DialoguerBackend::new();
         let config2 = ServerConfig::wizard_builder().with_backend(backend).build();
-        println!("Config: {:#?}\n", config2);
+        println!("Config: {:#?}", config2);
     }
 
     // Example 3: Builder with suggestions
@@ -41,5 +41,5 @@ fn main() {
     let config3 = ServerConfig::wizard_builder()
         .with_suggestions(suggestions)
         .build();
-    println!("Config: {:#?}\n", config3);
+    println!("Config: {:#?}", config3);
 }

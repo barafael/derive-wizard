@@ -17,7 +17,7 @@ struct Article {
 fn main() {
     println!("Article Wizard Demo");
     println!("This demonstrates the #[editor] attribute");
-    println!("which opens your preferred text editor for longer input.\n");
+    println!("which opens your preferred text editor for longer input.");
 
     let article = Article::wizard_builder().build();
     println!("{article:#?}");

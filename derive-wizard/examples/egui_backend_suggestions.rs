@@ -30,9 +30,9 @@ struct AppSettings {
 }
 
 fn main() {
-    println!("=== Application Settings - egui Suggestions Demo ===\n");
+    println!("=== Application Settings - egui Suggestions Demo ===");
     println!("This demo shows how to use the builder API with suggestions.");
-    println!("First, create initial settings, then edit them with suggestions.\n");
+    println!("First, create initial settings, then edit them with suggestions.");
 
     // First run: Create initial settings
     println!("--- First Run: Create New Settings ---");
@@ -43,11 +43,11 @@ fn main() {
     let settings = AppSettings::wizard_builder().with_backend(backend).build();
 
     println!("\n=== Settings Created ===");
-    println!("{:#?}\n", settings);
+    println!("{:#?}", settings);
 
     // Second run: Edit existing settings with suggestions
     println!("--- Second Run: Edit Existing Settings ---");
-    println!("The current values will be shown as suggestions (placeholders).\n");
+    println!("The current values will be shown as suggestions (placeholders).");
 
     let backend = derive_wizard::EguiBackend::new()
         .with_title("Application Settings - Edit")

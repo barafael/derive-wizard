@@ -126,26 +126,26 @@ fn print_question(question: &derive_wizard::interview::Question, indent: usize) 
 }
 
 fn main() {
-    println!("=== Struct with Enum - Interview Inspection ===\n");
+    println!("=== Struct with Enum - Interview Inspection ===");
 
-    println!("--- Order Interview Structure ---\n");
+    println!("--- Order Interview Structure ---");
     let order_interview = Order::interview();
     println!(
-        "Number of questions in Order: {}\n",
+        "Number of questions in Order: {}",
         order_interview.sections.len()
-);
+    );
 
     for (idx, question) in order_interview.sections.iter().enumerate() {
         println!("[Question {}]", idx);
         print_question(question, 0);
     }
 
-    println!("\n--- PaymentMethod Interview Structure ---\n");
+    println!("\n--- PaymentMethod Interview Structure ---");
     let payment_interview = PaymentMethod::interview();
     println!(
-        "Number of questions in PaymentMethod: {}\n",
+        "Number of questions in PaymentMethod: {}",
         payment_interview.sections.len()
-);
+    );
 
     for (idx, question) in payment_interview.sections.iter().enumerate() {
         println!("[Question {}]", idx);

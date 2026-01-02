@@ -16,7 +16,7 @@ struct UserProfile {
 fn main() {
     println!("=== Creating a new user profile ===");
     let profile = UserProfile::wizard_builder().build();
-    println!("Created profile: {profile:#?}\n");
+    println!("Created profile: {profile:#?}");
 
     println!("=== Editing the existing profile ===");
     println!("The current values will be pre-filled as suggestions.");

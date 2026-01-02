@@ -35,7 +35,7 @@ struct UserProfile {
 }
 
 fn main() {
-    println!("=== User Profile Wizard - dialoguer Demo ===\n");
+    println!("=== User Profile Wizard - dialoguer Demo ===");
 
     // Use the dialoguer backend with builder API
     let backend = derive_wizard::DialoguerBackend::new();

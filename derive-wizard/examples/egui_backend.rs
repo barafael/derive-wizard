@@ -35,7 +35,7 @@ struct UserProfile {
 }
 
 fn main() {
-    println!("=== User Profile Wizard - egui Demo ===\n");
+    println!("=== User Profile Wizard - egui Demo ===");
 
     // Use the egui backend with builder API
     let backend = derive_wizard::EguiBackend::new()

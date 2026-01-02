@@ -15,7 +15,7 @@ struct AppSettings {
 }
 
 fn main() {
-    println!("=== Builder API with Egui Backend ===\n");
+    println!("=== Builder API with Egui Backend ===");
 
     // Using builder with egui backend
     let backend = derive_wizard::EguiBackend::new()

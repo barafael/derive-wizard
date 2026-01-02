@@ -24,11 +24,11 @@ struct DeploymentConfig {
 }
 
 fn main() {
-    println!("=== Deployment Configuration Tool ===\n");
+    println!("=== Deployment Configuration Tool ===");
 
     // Scenario 1: Partial assumptions - the most common use case
     println!("--- Scenario 1: Partial Assumptions (Recommended) ---");
-    println!("We'll assume some security-critical values but ask about others.\n");
+    println!("We'll assume some security-critical values but ask about others.");
 
     let config = DeploymentConfig::wizard_builder()
         .assume_field("environment", "production".to_string()) // Fixed: production
@@ -37,13 +37,13 @@ fn main() {
         .build(); // Will only ask about 'app_name' and 'database_url'
 
     println!("\n=== Configuration (with partial assumptions) ===");
-    println!("{:#?}\n", config);
+    println!("{:#?}", config);
     println!("Notice: Only asked about app_name and database_url!");
-    println!("The fields 'environment', 'debug', and 'port' were assumed.\n");
+    println!("The fields 'environment', 'debug', and 'port' were assumed.");
 
     // Scenario 2: Full assumptions - for batch processing
     println!("\n--- Scenario 2: Full Assumptions (for automation) ---");
-    println!("Using a complete template - no questions will be asked.\n");
+    println!("Using a complete template - no questions will be asked.");
 
     let batch_config = DeploymentConfig::wizard_builder()
         .assume_field("app_name", "batch-processor".to_string())
@@ -57,7 +57,7 @@ fn main() {
         .build();
 
     println!("=== Batch Configuration (all assumed, no questions) ===");
-    println!("{:#?}\n", batch_config);
+    println!("{:#?}", batch_config);
 
     println!("--- Summary ---");
     println!("Partial assumptions: Fix some fields, ask about others");

@@ -42,9 +42,9 @@ struct ServiceConfig {
 }
 
 fn main() {
-    println!("=== Service Configuration - dialoguer Password Demo ===\n");
+    println!("=== Service Configuration - dialoguer Password Demo ===");
     println!("This demo showcases password masking and alternatives in dialoguer.");
-    println!("Passwords and sensitive fields are masked with asterisks.\n");
+    println!("Passwords and sensitive fields are masked with asterisks.");
 
     let backend = derive_wizard::DialoguerBackend::new();
     let config = ServiceConfig::wizard_builder()

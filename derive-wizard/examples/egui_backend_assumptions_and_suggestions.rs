@@ -28,15 +28,15 @@ struct ServerConfig {
 }
 
 fn main() {
-    println!("=== Egui Assumptions vs Suggestions Demo ===\n");
+    println!("=== Egui Assumptions vs Suggestions Demo ===");
     println!("This demo shows three scenarios:");
     println!("1. Fresh configuration (no defaults)");
     println!("2. Configuration with suggestions (pre-filled but editable)");
-    println!("3. Configuration with assumptions (fixed values, some fields skipped)\n");
+    println!("3. Configuration with assumptions (fixed values, some fields skipped)");
 
     // Scenario 1: Fresh configuration
     println!("--- Scenario 1: Fresh Configuration ---");
-    println!("Creating a new configuration from scratch...\n");
+    println!("Creating a new configuration from scratch...");
 
     let backend1 = derive_wizard::EguiBackend::new()
         .with_title("Scenario 1: Fresh Configuration")
@@ -47,12 +47,12 @@ fn main() {
         .build();
 
     println!("Fresh config created:");
-    println!("{:#?}\n", fresh_config);
+    println!("{:#?}", fresh_config);
 
     // Scenario 2: Configuration with suggestions
     println!("--- Scenario 2: Configuration with Suggestions ---");
     println!("Using the previous config as suggestions.");
-    println!("All fields will be shown with pre-filled values that you can edit.\n");
+    println!("All fields will be shown with pre-filled values that you can edit.");
 
     let backend2 = derive_wizard::EguiBackend::new()
         .with_title("Scenario 2: With Suggestions (All Fields Shown)")
@@ -64,21 +64,20 @@ fn main() {
         .build();
 
     println!("Config with suggestions:");
-    println!("{:#?}\n", config_with_suggestions);
+    println!("{:#?}", config_with_suggestions);
 
     // Scenario 3: Configuration with assumptions
     println!("--- Scenario 3: Configuration with Assumptions ---");
     println!("Using assumptions for security-critical settings.");
-    println!("These fields will be SKIPPED and use the assumed values:\n");
+    println!("These fields will be SKIPPED and use the assumed values:");
 
     println!("Assumed values (will NOT be asked):");
     println!("  - environment: production (fixed)");
-    println!("  - enable_ssl: true (security requirement)");
-    println!("  - debug_logging: false (security requirement)");
     println!("  - port: 443 (standard HTTPS port)");
     println!("  - max_connections: 5000 (performance tuning)");
-    println!("  - server_name: prod-server-01 (naming convention)\n");
-    println!("Since ALL fields have assumptions, the wizard will complete immediately!");
+    println!("  - enable_ssl: true (security requirement)");
+    println!("  - debug_logging: false (security requirement)");
+    println!("Since ALL BUT ONE fields have assumptions, the wizard will show only one field.");
 
     let backend3 = derive_wizard::EguiBackend::new()
         .with_title("Scenario 3: With Assumptions (No Questions Asked)")
@@ -91,6 +90,7 @@ fn main() {
         .assume_field("max_connections", 5000)
         .assume_field("enable_ssl", true)
         .assume_field("debug_logging", false)
+        // .assume_field("server_name", "sv14")
         .with_backend(backend3)
         .build();
 

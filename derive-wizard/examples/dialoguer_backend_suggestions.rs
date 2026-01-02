@@ -31,22 +31,22 @@ struct AppSettings {
 }
 
 fn main() {
-    println!("=== Application Settings - dialoguer Suggestions Demo ===\n");
+    println!("=== Application Settings - dialoguer Suggestions Demo ===");
     println!("This demo showcases how dialoguer displays suggested values.");
     println!("Suggested values appear in [square brackets].");
-    println!("Press Enter to accept a suggestion, or type a new value.\n");
+    println!("Press Enter to accept a suggestion, or type a new value.");
 
     // Create initial settings with builder API
     let backend = derive_wizard::DialoguerBackend::new();
-    println!("--- First Run: Create New Settings ---\n");
+    println!("--- First Run: Create New Settings ---");
     let settings = AppSettings::wizard_builder().with_backend(backend).build();
 
     println!("\n=== Settings Created ===");
-    println!("{:#?}\n", settings);
+    println!("{:#?}", settings);
 
     // Edit existing settings with suggestions using builder API
     println!("--- Second Run: Edit Existing Settings ---");
-    println!("The current values will be shown as suggestions.\n");
+    println!("The current values will be shown as suggestions.");
     let backend = derive_wizard::DialoguerBackend::new();
     let updated_settings = AppSettings::wizard_builder()
         .with_suggestions(settings)

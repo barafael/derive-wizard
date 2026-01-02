@@ -18,14 +18,14 @@ struct UserProfile {
 }
 
 fn main() {
-    println!("=== Comprehensive Builder API Demo ===\n");
+    println!("=== Comprehensive Builder API Demo ===");
 
     // Example 1: Default usage (uses requestty backend by default)
     #[cfg(feature = "requestty-backend")]
     {
         println!("--- Example 1: Default Builder (Requestty) ---");
         let profile1 = UserProfile::wizard_builder().build();
-        println!("Profile: {:#?}\n", profile1);
+        println!("Profile: {:#?}", profile1);
     }
 
     // Example 2: With dialoguer backend
@@ -34,7 +34,7 @@ fn main() {
         println!("--- Example 2: Builder with Dialoguer Backend ---");
         let backend = derive_wizard::DialoguerBackend::new();
         let profile2 = UserProfile::wizard_builder().with_backend(backend).build();
-        println!("Profile: {:#?}\n", profile2);
+        println!("Profile: {:#?}", profile2);
     }
 
     // Example 3: With egui backend
@@ -46,7 +46,7 @@ fn main() {
             .with_window_size([450.0, 350.0]);
 
         let profile3 = UserProfile::wizard_builder().with_backend(backend).build();
-        println!("Profile: {:#?}\n", profile3);
+        println!("Profile: {:#?}", profile3);
     }
 
     // Example 4: With suggestions (will be prompted with these as starting values)
@@ -63,7 +63,7 @@ fn main() {
         let profile4 = UserProfile::wizard_builder()
             .with_suggestions(suggestions)
             .build();
-        println!("Profile: {:#?}\n", profile4);
+        println!("Profile: {:#?}", profile4);
     }
 
     // Example 5: Combining suggestions with custom backend
@@ -83,7 +83,7 @@ fn main() {
             .with_suggestions(suggestions)
             .with_backend(backend)
             .build();
-        println!("Profile: {:#?}\n", profile5);
+        println!("Profile: {:#?}", profile5);
     }
 
     println!("=== Demo Complete ===");
