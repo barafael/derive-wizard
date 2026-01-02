@@ -81,8 +81,8 @@ fn test_struct_with_float() {
 fn test_nested_struct() {
     let backend = TestBackend::new()
         .with_string("name", "Charlie")
-        .with_string("street", "123 Main St")
-        .with_string("city", "Springfield");
+        .with_string("address.street", "123 Main St")
+        .with_string("address.city", "Springfield");
 
     let result = UserWithAddress::wizard_builder()
         .with_backend(backend)
@@ -105,7 +105,7 @@ fn test_enum_simple_variant() {
     let backend = TestBackend::new()
         .with_string("item", "Laptop")
         .with_int("quantity", 2)
-        .with_string("selected_alternative", "Cash");
+        .with_string("payment.selected_alternative", "Cash");
 
     let result = Order::wizard_builder().with_backend(backend).build();
 
@@ -124,9 +124,9 @@ fn test_enum_variant_with_fields() {
     let backend = TestBackend::new()
         .with_string("item", "Laptop")
         .with_int("quantity", 2)
-        .with_string("selected_alternative", "CreditCard")
-        .with_string("number", "1234-5678-9012-3456")
-        .with_string("cvv", "123");
+        .with_string("payment.selected_alternative", "CreditCard")
+        .with_string("payment.number", "1234-5678-9012-3456")
+        .with_string("payment.cvv", "123");
 
     let result = Order::wizard_builder().with_backend(backend).build();
 
@@ -148,8 +148,8 @@ fn test_different_enum_variant() {
     let backend = TestBackend::new()
         .with_string("item", "Phone")
         .with_int("quantity", 1)
-        .with_string("selected_alternative", "BankTransfer")
-        .with_string("account", "DE89370400440532013000");
+        .with_string("payment.selected_alternative", "BankTransfer")
+        .with_string("payment.account", "DE89370400440532013000");
 
     let result = Order::wizard_builder().with_backend(backend).build();
 
@@ -261,8 +261,8 @@ struct ContactInfo {
 fn test_deeply_nested_structs() {
     let backend = TestBackend::new()
         .with_string("name", "John Doe")
-        .with_string("email", "john@example.com")
-        .with_string("phone", "+1-555-0100");
+        .with_string("contact.email", "john@example.com")
+        .with_string("contact.phone", "+1-555-0100");
 
     let result = Person::wizard_builder().with_backend(backend).build();
 
@@ -288,8 +288,8 @@ struct Account {
 fn test_struct_with_enum_field() {
     let backend = TestBackend::new()
         .with_string("username", "alice")
-        .with_string("selected_alternative", "Pending")
-        .with_string("reason", "Awaiting verification");
+        .with_string("status.selected_alternative", "Pending")
+        .with_string("status.reason", "Awaiting verification");
 
     let result = Account::wizard_builder().with_backend(backend).build();
 
@@ -429,6 +429,152 @@ fn test_suggest_field_vs_assume_field() {
     assert_eq!(result.name, "Charlie"); // User input overrides suggestion
     assert_eq!(result.age, 35); // User input overrides suggestion
     assert!(result.active); // Assumed value, not asked
+}
+
+#[test]
+fn test_nested_suggest_field() {
+    use derive_wizard::field;
+
+    // Test suggesting nested fields using the field! macro
+    let backend = TestBackend::new()
+        .with_string("name", "John")
+        .with_string("address.street", "456 Oak Ave") // Override suggestion
+        .with_string("address.city", "Boston"); // Override suggestion
+
+    let result = UserWithAddress::wizard_builder()
+        .suggest_field(field!(name), "Alice".to_string())
+        .suggest_field(
+            field!(UserWithAddress::address::street),
+            "123 Main St".to_string(),
+        )
+        .suggest_field(
+            field!(UserWithAddress::address::city),
+            "Springfield".to_string(),
+        )
+        .with_backend(backend)
+        .build();
+
+    // User input should override suggestions
+    assert_eq!(result.name, "John");
+    assert_eq!(result.address.street, "456 Oak Ave");
+    assert_eq!(result.address.city, "Boston");
+}
+
+#[test]
+fn test_nested_assume_field() {
+    use derive_wizard::field;
+
+    // Test assuming nested fields - questions should be skipped
+    let backend = TestBackend::new().with_string("name", "Jane"); // Only this will be asked
+
+    let result = UserWithAddress::wizard_builder()
+        .assume_field(
+            field!(UserWithAddress::address::street),
+            "789 Elm St".to_string(),
+        )
+        .assume_field(
+            field!(UserWithAddress::address::city),
+            "Portland".to_string(),
+        )
+        .with_backend(backend)
+        .build();
+
+    assert_eq!(result.name, "Jane");
+    assert_eq!(result.address.street, "789 Elm St"); // Assumed, not asked
+    assert_eq!(result.address.city, "Portland"); // Assumed, not asked
+}
+
+#[test]
+fn test_nested_mixed_suggest_and_assume() {
+    use derive_wizard::field;
+
+    // Test mixing suggestions and assumptions on nested fields
+    let backend = TestBackend::new()
+        .with_string("name", "Bob")
+        .with_string("address.street", "999 Pine Rd"); // This will be asked with suggestion
+
+    let result = UserWithAddress::wizard_builder()
+        .suggest_field(
+            field!(UserWithAddress::address::street),
+            "100 Default St".to_string(),
+        )
+        .assume_field(
+            field!(UserWithAddress::address::city),
+            "Seattle".to_string(),
+        )
+        .with_backend(backend)
+        .build();
+
+    assert_eq!(result.name, "Bob");
+    assert_eq!(result.address.street, "999 Pine Rd"); // Suggested, user overrode
+    assert_eq!(result.address.city, "Seattle"); // Assumed, skipped
+}
+
+#[test]
+fn test_deeply_nested_assume_field() {
+    use derive_wizard::field;
+
+    // Test with deeply nested structure
+    let backend = TestBackend::new().with_string("name", "Alice"); // Only this will be asked
+
+    let result = Person::wizard_builder()
+        .assume_field(
+            field!(Person::contact::email),
+            "alice@example.com".to_string(),
+        )
+        .assume_field(field!(Person::contact::phone), "+1-555-9999".to_string())
+        .with_backend(backend)
+        .build();
+
+    assert_eq!(result.name, "Alice");
+    assert_eq!(result.contact.email, "alice@example.com");
+    assert_eq!(result.contact.phone, "+1-555-9999");
+}
+
+#[test]
+fn test_duplicate_field_names_different_paths() {
+    use derive_wizard::{Wizard, field};
+
+    // Create a struct with duplicate field names in different nested structs
+    #[derive(Debug, PartialEq, Wizard)]
+    struct Organization {
+        #[prompt("Organization name:")]
+        name: String,
+        primary: Department,
+        secondary: Department,
+    }
+
+    #[derive(Debug, PartialEq, Wizard)]
+    struct Department {
+        #[prompt("Department name:")]
+        name: String,
+        #[prompt("Budget:")]
+        budget: i32,
+    }
+
+    // Both nested structs have a 'name' field - test disambiguation
+    let backend = TestBackend::new()
+        .with_string("name", "Acme Corp") // Top-level name
+        .with_string("secondary.name", "Sales")
+        .with_int("secondary.budget", 50000); // secondary department budget (primary assumed)
+
+    let result = Organization::wizard_builder()
+        .assume_field(
+            field!(Organization::primary::name),
+            "Engineering".to_string(),
+        )
+        .assume_field(field!(Organization::primary::budget), 100000)
+        .suggest_field(
+            field!(Organization::secondary::name),
+            "Marketing".to_string(),
+        )
+        .with_backend(backend)
+        .build();
+
+    assert_eq!(result.name, "Acme Corp");
+    assert_eq!(result.primary.name, "Engineering"); // Assumed
+    assert_eq!(result.primary.budget, 100000); // Assumed
+    assert_eq!(result.secondary.budget, 50000); // Asked
 }
 
 #[test]

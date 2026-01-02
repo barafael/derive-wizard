@@ -1,3 +1,5 @@
+use std::slice;
+
 use crate::{AnswerError, AnswerValue, Answers, interview::Interview};
 
 #[cfg(feature = "requestty-backend")]
@@ -68,22 +70,41 @@ impl TestBackend {
 
 impl InterviewBackend for TestBackend {
     fn execute(&self, interview: &Interview) -> Result<Answers, BackendError> {
+        use crate::interview::{Question, QuestionKind};
         use derive_wizard_types::default::AssumedAnswer;
 
         let mut answers = self.answers.clone();
 
-        // Add assumed answers from the interview
-        for question in &interview.sections {
-            if let Some(assumed) = question.assumed() {
-                let value = match assumed {
-                    AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
-                    AssumedAnswer::Int(i) => AnswerValue::Int(*i),
-                    AssumedAnswer::Float(f) => AnswerValue::Float(*f),
-                    AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
-                };
-                answers.insert(question.name().to_string(), value);
+        // Recursively add assumed answers from the interview
+        fn collect_assumptions(questions: &[Question], answers: &mut Answers) {
+            for question in questions {
+                if let Some(assumed) = question.assumed() {
+                    let value = match assumed {
+                        AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
+                        AssumedAnswer::Int(i) => AnswerValue::Int(*i),
+                        AssumedAnswer::Float(f) => AnswerValue::Float(*f),
+                        AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
+                    };
+                    answers.insert(question.name().to_string(), value);
+                }
+
+                // Recursively handle nested questions
+                match question.kind() {
+                    QuestionKind::Sequence(nested_questions) => {
+                        collect_assumptions(nested_questions, answers);
+                    }
+                    QuestionKind::Alternative(_, alternatives) => {
+                        for alt in alternatives {
+                            let alt = slice::from_ref(alt);
+                            collect_assumptions(alt, answers);
+                        }
+                    }
+                    _ => {}
+                }
             }
         }
+
+        collect_assumptions(&interview.sections, &mut answers);
 
         Ok(answers)
     }

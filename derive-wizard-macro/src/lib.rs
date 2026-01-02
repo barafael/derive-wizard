@@ -29,7 +29,7 @@ pub fn wizard_derive(input: TokenStream) -> TokenStream {
 fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
     let name = &input.ident;
     let interview = build_interview(input);
-    let interview_code = generate_interview_code(&interview);
+    let interview_code = generate_interview_code(&interview, &input.data);
 
     let from_answers_code = match &input.data {
         Data::Struct(data) => generate_from_answers_struct(name, data),
@@ -70,7 +70,7 @@ fn build_interview(input: &syn::DeriveInput) -> Interview {
                 fields
                     .named
                     .iter()
-                    .map(|f| build_question(f, None))
+                    .flat_map(|f| build_question(f, None, None))
                     .collect()
             } else {
                 vec![]
@@ -87,12 +87,12 @@ fn build_interview(input: &syn::DeriveInput) -> Interview {
                             .unnamed
                             .iter()
                             .enumerate()
-                            .map(|(i, f)| build_question(f, Some(i)))
+                            .flat_map(|(i, f)| build_question(f, Some(i), None))
                             .collect(),
                         Fields::Named(fields) => fields
                             .named
                             .iter()
-                            .map(|f| build_question(f, None))
+                            .flat_map(|f| build_question(f, None, None))
                             .collect(),
                     };
                     Question::new(
@@ -116,7 +116,11 @@ fn build_interview(input: &syn::DeriveInput) -> Interview {
     Interview { sections }
 }
 
-fn build_question(field: &syn::Field, idx: Option<usize>) -> Question {
+fn build_question(
+    field: &syn::Field,
+    idx: Option<usize>,
+    parent_prefix: Option<&str>,
+) -> Vec<Question> {
     let field_name = idx
         .map(|i| format!("field_{i}"))
         .or_else(|| field.ident.as_ref().map(Ident::to_string))
@@ -125,7 +129,55 @@ fn build_question(field: &syn::Field, idx: Option<usize>) -> Question {
     let attrs = FieldAttrs::extract(&field.attrs, &field_name);
     let kind = determine_question_kind(&field.ty, &attrs);
 
-    Question::new(Some(field_name.clone()), field_name, attrs.prompt, kind)
+    // Apply parent prefix if present
+    let prefixed_name = if let Some(prefix) = parent_prefix {
+        format!("{}.{}", prefix, field_name)
+    } else {
+        field_name.clone()
+    };
+
+    // Check if this is a custom type (potential nested Wizard)
+    let field_ty = &field.ty;
+    let type_str = quote!(#field_ty).to_string();
+    let is_custom_type = !matches!(
+        type_str.as_str(),
+        "String"
+            | "bool"
+            | "i8"
+            | "i16"
+            | "i32"
+            | "i64"
+            | "i128"
+            | "isize"
+            | "u8"
+            | "u16"
+            | "u32"
+            | "u64"
+            | "u128"
+            | "usize"
+            | "f32"
+            | "f64"
+            | "PathBuf"
+    ) && !attrs.mask
+        && !attrs.editor;
+
+    if is_custom_type {
+        // For custom types, we assume they might be Wizards and need to expand their fields
+        // We'll generate a marker question that will be expanded at runtime
+        vec![Question::new(
+            Some(prefixed_name.clone()),
+            prefixed_name,
+            attrs.prompt,
+            QuestionKind::Sequence(vec![]), // Empty sequence, will be populated at runtime
+        )]
+    } else {
+        vec![Question::new(
+            Some(prefixed_name.clone()),
+            prefixed_name,
+            attrs.prompt,
+            kind,
+        )]
+    }
 }
 
 struct FieldAttrs {
@@ -305,11 +357,68 @@ fn extract_float_attr(attrs: &[syn::Attribute], name: &str) -> Option<f64> {
     })
 }
 
-fn generate_interview_code(interview: &Interview) -> proc_macro2::TokenStream {
-    let sections = interview.sections.iter().map(generate_question_code);
+fn generate_interview_code(interview: &Interview, data: &Data) -> proc_macro2::TokenStream {
+    // Generate runtime code that builds the interview, populating nested Wizard sequences
+    let section_builders: Vec<_> = if let Data::Struct(struct_data) = data {
+        if let Fields::Named(fields) = &struct_data.fields {
+            fields.named.iter().zip(&interview.sections).map(|(field, question)| {
+                let field_ty = &field.ty;
+                let field_name = field.ident.as_ref().unwrap().to_string();
+
+                // Check if this is a Sequence (nested Wizard marker)
+                if matches!(question.kind(), QuestionKind::Sequence(seq) if seq.is_empty()) {
+                    // Generate code to call FieldType::interview() and prefix the nested questions
+                    quote! {
+                        {
+                            let mut nested_interview = <#field_ty as derive_wizard::Wizard>::interview();
+                            // Prefix all nested question names
+                            for question in &mut nested_interview.sections {
+                                let old_name = question.name().to_string();
+                                let new_name = format!("{}.{}", #field_name, old_name);
+                                *question = derive_wizard::interview::Question::new(
+                                    Some(new_name.clone()),
+                                    new_name,
+                                    question.prompt().to_string(),
+                                    question.kind().clone(),
+                                );
+                            }
+                            nested_interview.sections
+                        }
+                    }
+                } else {
+                    // Regular question
+                    let q_code = generate_question_code(question);
+                    quote! { vec![#q_code] }
+                }
+            }).collect()
+        } else {
+            interview
+                .sections
+                .iter()
+                .map(|q| {
+                    let q_code = generate_question_code(q);
+                    quote! { vec![#q_code] }
+                })
+                .collect()
+        }
+    } else {
+        interview
+            .sections
+            .iter()
+            .map(|q| {
+                let q_code = generate_question_code(q);
+                quote! { vec![#q_code] }
+            })
+            .collect()
+    };
+
     quote! {
-        derive_wizard::interview::Interview {
-            sections: vec![#(#sections),*],
+        {
+            let mut all_sections = Vec::new();
+            #(all_sections.extend(#section_builders);)*
+            derive_wizard::interview::Interview {
+                sections: all_sections,
+            }
         }
     }
 }
@@ -530,8 +639,22 @@ fn generate_answer_extraction(ty: &Type, field_name: &str) -> proc_macro2::Token
         "f32" | "f64" => quote! { answers.as_float(#field_name)? as #ty },
         "PathBuf" => quote! { std::path::PathBuf::from(answers.as_string(#field_name)?) },
         type_str => {
+            // For nested Wizard types, create a filtered answer set with prefixes stripped
             let type_ident = syn::parse_str::<syn::Ident>(type_str).unwrap();
-            quote! { #type_ident::from_answers(answers)? }
+            let prefix = format!("{}.", field_name);
+            quote! {
+                {
+                    // Filter answers that start with this field's prefix and strip the prefix
+                    let mut nested_answers = derive_wizard::Answers::default();
+                    let prefix = #prefix;
+                    for (key, value) in answers.iter() {
+                        if let Some(stripped) = key.strip_prefix(prefix) {
+                            nested_answers.insert(stripped.to_string(), value.clone());
+                        }
+                    }
+                    #type_ident::from_answers(&nested_answers)?
+                }
+            }
         }
     }
 }

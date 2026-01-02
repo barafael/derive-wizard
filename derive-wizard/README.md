@@ -247,6 +247,128 @@ Assumptions are useful for:
 - Providing sensible defaults that users shouldn't change
 - Batch processing with some fixed and some variable fields
 
+### Working with Nested Fields
+
+When your struct contains other `Wizard`-derived types, the fields are automatically namespaced with dot notation to avoid conflicts:
+
+```rust,no_run
+use derive_wizard::Wizard;
+
+#[derive(Debug, Clone, Wizard)]
+struct Address {
+    #[prompt("Street:")]
+    street: String,
+    
+    #[prompt("City:")]
+    city: String,
+}
+
+#[derive(Debug, Clone, Wizard)]
+struct UserProfile {
+    #[prompt("Name:")]
+    name: String,
+    
+    #[prompt("Home address:")]
+    address: Address,  // Nested Wizard type
+}
+
+// The nested Address fields are automatically prefixed:
+// - "address.street"
+// - "address.city"
+```
+
+**Namespace Prefixing**: Each nested field is prefixed with its parent field name and a dot. This allows you to:
+- Have duplicate field names in different nested structures
+- Target specific nested fields with suggestions and assumptions
+- Maintain a flat question list while preserving logical structure
+
+#### Using the `field!` Macro for Nested Fields
+
+To reference nested fields in `suggest_field()` or `assume_field()`, use the `field!` macro with dot notation:
+
+```rust,no_run
+use derive_wizard::{Wizard, field};
+
+# #[derive(Debug, Clone, Wizard)]
+# struct Address {
+#     #[prompt("Street:")]
+#     street: String,
+#     #[prompt("City:")]
+#     city: String,
+# }
+# 
+# #[derive(Debug, Clone, Wizard)]
+# struct UserProfile {
+#     #[prompt("Name:")]
+#     name: String,
+#     address: Address,
+# }
+let profile = UserProfile::wizard_builder()
+    .suggest_field(field!(name), "John Doe".to_string())
+    .suggest_field(
+        field!(UserProfile::address::street),
+        "123 Main St".to_string()
+    )
+    .assume_field(
+        field!(UserProfile::address::city),
+        "Springfield".to_string()
+    )
+    .build();
+```
+
+The `field!` macro supports:
+- Simple fields: `field!(name)` → `"name"`
+- One level nesting: `field!(Type::field)` → `"field"`
+- Two level nesting: `field!(Type::nested::field)` → `"nested.field"`
+
+#### Handling Duplicate Field Names
+
+Namespace prefixing automatically handles duplicate field names across different nested structures:
+
+```rust,no_run
+use derive_wizard::{Wizard, field};
+
+#[derive(Debug, Clone, Wizard)]
+struct Department {
+    #[prompt("Department name:")]
+    name: String,
+    
+    #[prompt("Budget:")]
+    budget: i32,
+}
+
+#[derive(Debug, Clone, Wizard)]
+struct Organization {
+    #[prompt("Organization name:")]
+    name: String,  // Same field name as Department
+    
+    primary: Department,
+    secondary: Department,
+}
+
+// Each 'name' field gets a unique path:
+// - "name" (Organization.name)
+// - "primary.name" (primary Department.name)
+// - "secondary.name" (secondary Department.name)
+
+let org = Organization::wizard_builder()
+    .suggest_field(field!(name), "Acme Corp".to_string())
+    .assume_field(
+        field!(Organization::primary::name),
+        "Engineering".to_string()
+    )
+    .assume_field(
+        field!(Organization::secondary::name),
+        "Sales".to_string()
+    )
+    .build();
+```
+
+This namespace approach ensures that:
+- No field names collide, even with identical names in different nested structures
+- You can precisely target any field using the `field!` macro
+- The interview remains a flat list of questions (no complex nesting UI)
+
 ## Supported Question Types
 
 The `#[derive(Wizard)]` macro supports all 11 requestty question types:

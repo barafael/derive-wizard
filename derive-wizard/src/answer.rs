@@ -98,4 +98,9 @@ impl Answers {
             None => Err(AnswerError::MissingKey(key.to_string())),
         }
     }
+
+    /// Iterate over all key-value pairs
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &AnswerValue)> {
+        self.values.iter()
+    }
 }

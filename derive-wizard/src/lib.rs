@@ -2,11 +2,13 @@
 
 pub mod answer;
 pub mod backend;
+pub mod field_path;
 
 pub use answer::{AnswerError, AnswerValue, Answers};
 pub use backend::{BackendError, InterviewBackend, TestBackend};
 pub use derive_wizard_macro::*;
 pub use derive_wizard_types::interview;
+pub use field_path::FieldPath;
 
 #[cfg(feature = "requestty-backend")]
 pub use backend::requestty_backend::RequesttyBackend;
@@ -33,14 +35,51 @@ pub trait Wizard: Sized {
     }
 }
 
+/// Helper function to recursively find a question by field path.
+///
+/// This searches through the interview hierarchy, navigating into
+/// nested `QuestionKind::Sequence` to find the target question.
+fn find_question_by_path<'a>(
+    questions: &'a mut [interview::Question],
+    path: &FieldPath,
+) -> Option<&'a mut interview::Question> {
+    let segments = path.segments();
+
+    if segments.is_empty() {
+        return None;
+    }
+
+    // If it's a single segment, search at this level
+    if segments.len() == 1 {
+        return questions.iter_mut().find(|q| q.name() == segments[0]);
+    }
+
+    // Multi-segment path: find the first segment at this level
+    let first = &segments[0];
+    let rest = FieldPath::new(segments[1..].to_vec());
+
+    for question in questions.iter_mut() {
+        // If this question's name matches the first segment
+        if question.name() == first {
+            // Check if it's a Sequence kind (nested struct)
+            if let interview::QuestionKind::Sequence(nested_questions) = question.kind_mut() {
+                // Recursively search in the nested questions
+                return find_question_by_path(nested_questions, &rest);
+            }
+        }
+    }
+
+    None
+}
+
 /// Builder for configuring and executing a wizard
 #[derive(Default)]
 pub struct WizardBuilder<T: Wizard> {
     suggestions: Option<T>,
     partial_suggestions:
-        std::collections::HashMap<String, derive_wizard_types::default::SuggestedAnswer>,
+        std::collections::HashMap<FieldPath, derive_wizard_types::default::SuggestedAnswer>,
     partial_assumptions:
-        std::collections::HashMap<String, derive_wizard_types::default::AssumedAnswer>,
+        std::collections::HashMap<FieldPath, derive_wizard_types::default::AssumedAnswer>,
     backend: Option<Box<dyn InterviewBackend>>,
 }
 
@@ -62,9 +101,14 @@ impl<T: Wizard> WizardBuilder<T> {
     }
 
     /// Suggest a specific field value. The question will still be asked but with a pre-filled default.
+    ///
+    /// For nested fields, use the `field!` macro:
+    /// ```ignore
+    /// .suggest_field(field!(Person::contact::email), "john@example.com".to_string())
+    /// ```
     pub fn suggest_field(
         mut self,
-        field: impl Into<String>,
+        field: impl Into<FieldPath>,
         value: impl Into<derive_wizard_types::default::SuggestedAnswer>,
     ) -> Self {
         self.partial_suggestions.insert(field.into(), value.into());
@@ -72,9 +116,14 @@ impl<T: Wizard> WizardBuilder<T> {
     }
 
     /// Assume a specific field value. The question for this field will be skipped.
+    ///
+    /// For nested fields, use the `field!` macro:
+    /// ```ignore
+    /// .assume_field(field!(Person::contact::phone), "+1-555-0100".to_string())
+    /// ```
     pub fn assume_field(
         mut self,
-        field: impl Into<String>,
+        field: impl Into<FieldPath>,
         value: impl Into<derive_wizard_types::default::AssumedAnswer>,
     ) -> Self {
         self.partial_assumptions.insert(field.into(), value.into());
@@ -100,23 +149,15 @@ impl<T: Wizard> WizardBuilder<T> {
         };
 
         // Apply partial suggestions
-        for (field_name, value) in self.partial_suggestions {
-            if let Some(question) = interview
-                .sections
-                .iter_mut()
-                .find(|q| q.name() == field_name)
-            {
+        for (field_path, value) in self.partial_suggestions {
+            if let Some(question) = find_question_by_path(&mut interview.sections, &field_path) {
                 question.set_suggestion(value);
             }
         }
 
         // Apply partial assumptions
-        for (field_name, value) in self.partial_assumptions {
-            if let Some(question) = interview
-                .sections
-                .iter_mut()
-                .find(|q| q.name() == field_name)
-            {
+        for (field_path, value) in self.partial_assumptions {
+            if let Some(question) = find_question_by_path(&mut interview.sections, &field_path) {
                 question.set_assumption(value);
             }
         }
@@ -140,23 +181,15 @@ impl<T: Wizard> WizardBuilder<T> {
         };
 
         // Apply partial suggestions
-        for (field_name, value) in self.partial_suggestions {
-            if let Some(question) = interview
-                .sections
-                .iter_mut()
-                .find(|q| q.name() == field_name)
-            {
+        for (field_path, value) in self.partial_suggestions {
+            if let Some(question) = find_question_by_path(&mut interview.sections, &field_path) {
                 question.set_suggestion(value);
             }
         }
 
         // Apply partial assumptions
-        for (field_name, value) in self.partial_assumptions {
-            if let Some(question) = interview
-                .sections
-                .iter_mut()
-                .find(|q| q.name() == field_name)
-            {
+        for (field_path, value) in self.partial_assumptions {
+            if let Some(question) = find_question_by_path(&mut interview.sections, &field_path) {
                 question.set_assumption(value);
             }
         }

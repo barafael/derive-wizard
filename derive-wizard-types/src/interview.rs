@@ -51,6 +51,10 @@ impl Question {
         &self.kind
     }
 
+    pub fn kind_mut(&mut self) -> &mut QuestionKind {
+        &mut self.kind
+    }
+
     pub fn assumed(&self) -> Option<&AssumedAnswer> {
         self.assumed.as_ref()
     }
