@@ -70,15 +70,16 @@ impl From<&[&str]> for FieldPath {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```rust
+/// use derive_wizard::field;
 /// // Single field (top-level)
-/// field!(name) // expands to FieldPath from "name"
+/// field!(name); // expands to FieldPath from "name"
 ///
 /// // Nested field
-/// field!(Person::contact::email) // expands to FieldPath from "contact/email"
+/// field!(Person::contact::email); // expands to FieldPath from "contact/email"
 ///
 /// // Multiple levels
-/// field!(Company::address::location::city) // expands to FieldPath from "address/location/city"
+/// field!(Company::address::location::city); // expands to FieldPath from "address/location/city"
 /// ```
 #[macro_export]
 macro_rules! field {

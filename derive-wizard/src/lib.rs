@@ -4,6 +4,9 @@ pub mod answer;
 pub mod backend;
 pub mod field_path;
 
+#[cfg(feature = "typst-form")]
+pub mod typst_form;
+
 pub use answer::{AnswerError, AnswerValue, Answers};
 pub use backend::{BackendError, InterviewBackend, TestBackend};
 pub use derive_wizard_macro::*;
@@ -32,6 +35,36 @@ pub trait Wizard: Sized {
     /// Create a builder for this wizard
     fn wizard_builder() -> WizardBuilder<Self> {
         WizardBuilder::new()
+    }
+
+    /// Generate a Typst form (.typ file) from the interview structure
+    ///
+    /// This method is only available when the `typst-form` feature is enabled.
+    /// It returns a String containing valid Typst markup that can be saved as a .typ file
+    /// and compiled to a professional-looking PDF form.
+    ///
+    /// Note: Typst does not currently support interactive fillable PDF forms. The generated
+    /// PDF is a static, print-ready form that can be filled out by hand or with PDF annotation tools.
+    ///
+    /// # Example
+    /// ```ignore
+    /// use derive_wizard::Wizard;
+    ///
+    /// #[derive(Wizard)]
+    /// struct Person {
+    ///     name: String,
+    ///     age: i64,
+    /// }
+    ///
+    /// let typst_markup = Person::to_typst_form(Some("Registration Form"));
+    /// std::fs::write("form.typ", &typst_markup).unwrap();
+    ///
+    /// // Compile to PDF using: typst compile form.typ
+    /// ```
+    #[cfg(feature = "typst-form")]
+    fn to_typst_form(title: Option<&str>) -> String {
+        let interview = Self::interview();
+        crate::typst_form::generate_typst_form(&interview, title)
     }
 }
 
@@ -102,10 +135,7 @@ impl<T: Wizard> WizardBuilder<T> {
 
     /// Suggest a specific field value. The question will still be asked but with a pre-filled default.
     ///
-    /// For nested fields, use the `field!` macro:
-    /// ```ignore
-    /// .suggest_field(field!(Person::contact::email), "john@example.com".to_string())
-    /// ```
+    /// For nested fields, use the `field!` macro.
     pub fn suggest_field(
         mut self,
         field: impl Into<FieldPath>,
@@ -117,10 +147,7 @@ impl<T: Wizard> WizardBuilder<T> {
 
     /// Assume a specific field value. The question for this field will be skipped.
     ///
-    /// For nested fields, use the `field!` macro:
-    /// ```ignore
-    /// .assume_field(field!(Person::contact::phone), "+1-555-0100".to_string())
-    /// ```
+    /// For nested fields, use the `field!` macro.
     pub fn assume_field(
         mut self,
         field: impl Into<FieldPath>,
