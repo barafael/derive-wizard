@@ -55,6 +55,11 @@ path = "examples/backends/dialoguer_password.rs"
 required-features = ["dialoguer-backend"]
 
 [[example]]
+name = "dialoguer_validation"
+path = "examples/backends/dialoguer_validation.rs"
+required-features = ["dialoguer-backend"]
+
+[[example]]
 name = "builder_egui"
 path = "examples/builders/builder_egui.rs"
 required-features = ["egui-backend"]

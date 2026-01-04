@@ -39,7 +39,7 @@ pub trait InterviewBackend {
     fn execute_with_validator(
         &self,
         interview: &Interview,
-        validator: &dyn Fn(&str, &str, &Answers) -> Result<(), String>,
+        validator: &(dyn Fn(&str, &str, &Answers) -> Result<(), String> + Send + Sync),
     ) -> Result<Answers, BackendError> {
         // Default implementation: just execute without validation
         let _ = validator;

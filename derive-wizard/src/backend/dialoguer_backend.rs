@@ -291,7 +291,7 @@ impl InterviewBackend for DialoguerBackend {
     fn execute_with_validator(
         &self,
         interview: &Interview,
-        validator: &dyn Fn(&str, &str, &Answers) -> Result<(), String>,
+        validator: &(dyn Fn(&str, &str, &Answers) -> Result<(), String> + Send + Sync),
     ) -> Result<Answers, BackendError> {
         use derive_wizard_types::default::AssumedAnswer;
 

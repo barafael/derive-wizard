@@ -299,7 +299,7 @@ impl InterviewBackend for RequesttyBackend {
     fn execute_with_validator(
         &self,
         interview: &crate::interview::Interview,
-        validator: &dyn Fn(&str, &str, &Answers) -> Result<(), String>,
+        validator: &(dyn Fn(&str, &str, &Answers) -> Result<(), String> + Send + Sync),
     ) -> Result<Answers, BackendError> {
         use derive_wizard_types::default::AssumedAnswer;
 
