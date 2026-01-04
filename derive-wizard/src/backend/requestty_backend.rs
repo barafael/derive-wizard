@@ -133,12 +133,7 @@ impl RequesttyBackend {
             }
             QuestionKind::Sequence(questions) => {
                 // Keep enum handling consistent with execute_question
-                let is_enum_alternatives = !questions.is_empty()
-                    && questions
-                        .iter()
-                        .all(|q| matches!(q.kind(), QuestionKind::Alternative(_, _)));
-
-                if is_enum_alternatives {
+                if question.kind().is_enum_alternatives() {
                     let choices: Vec<String> =
                         questions.iter().map(|q| q.name().to_string()).collect();
 
@@ -336,7 +331,10 @@ impl RequesttyBackend {
             }
             QuestionKind::MultiSelect(multi_q) => {
                 // Build choices with default selections marked
-                let choices: Vec<_> = multi_q.options.iter().enumerate()
+                let choices: Vec<_> = multi_q
+                    .options
+                    .iter()
+                    .enumerate()
                     .map(|(idx, opt)| {
                         let selected = multi_q.defaults.contains(&idx);
                         (opt.clone(), selected)
@@ -352,19 +350,13 @@ impl RequesttyBackend {
                     .map_err(|e| BackendError::ExecutionError(format!("Failed to prompt: {e}")))?;
 
                 if let requestty::Answer::ListItems(items) = answer {
-                    let indices: Vec<i64> = items.into_iter().map(|item| item.index as i64).collect();
+                    let indices: Vec<i64> =
+                        items.into_iter().map(|item| item.index as i64).collect();
                     answers.insert(id.to_string(), AnswerValue::IntList(indices));
                 }
             }
             QuestionKind::Sequence(questions) => {
-                // Check if this is an enum alternatives sequence
-                // (all items are Alternative questions)
-                let is_enum_alternatives = !questions.is_empty()
-                    && questions
-                        .iter()
-                        .all(|q| matches!(q.kind(), QuestionKind::Alternative(_, _)));
-
-                if is_enum_alternatives {
+                if question.kind().is_enum_alternatives() {
                     // This is an enum - present a selection menu
                     let choices: Vec<String> =
                         questions.iter().map(|q| q.name().to_string()).collect();
@@ -481,8 +473,6 @@ impl Default for RequesttyBackend {
 
 impl InterviewBackend for RequesttyBackend {
     fn execute(&self, interview: &crate::interview::Interview) -> Result<Answers, BackendError> {
-        use derive_wizard_types::AssumedAnswer;
-
         // Display prelude if present
         if let Some(prelude) = &interview.prelude {
             println!("{}", prelude);
@@ -494,13 +484,7 @@ impl InterviewBackend for RequesttyBackend {
         for question in &interview.sections {
             // Check if question has an assumption - if so, use it and skip prompting
             if let Some(assumed) = question.assumed() {
-                let value = match assumed {
-                    AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
-                    AssumedAnswer::Int(i) => AnswerValue::Int(*i),
-                    AssumedAnswer::Float(f) => AnswerValue::Float(*f),
-                    AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
-                };
-                answers.insert(question.name().to_string(), value);
+                answers.insert(question.name().to_string(), assumed.into());
                 continue;
             }
 
@@ -521,8 +505,6 @@ impl InterviewBackend for RequesttyBackend {
         interview: &crate::interview::Interview,
         validator: &(dyn Fn(&str, &str, &Answers) -> Result<(), String> + Send + Sync),
     ) -> Result<Answers, BackendError> {
-        use derive_wizard_types::AssumedAnswer;
-
         // Display prelude if present
         if let Some(prelude) = &interview.prelude {
             println!("{}", prelude);
@@ -534,13 +516,7 @@ impl InterviewBackend for RequesttyBackend {
         for question in &interview.sections {
             // Check if question has an assumption - if so, use it and skip prompting
             if let Some(assumed) = question.assumed() {
-                let value = match assumed {
-                    AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
-                    AssumedAnswer::Int(i) => AnswerValue::Int(*i),
-                    AssumedAnswer::Float(f) => AnswerValue::Float(*f),
-                    AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
-                };
-                answers.insert(question.name().to_string(), value);
+                answers.insert(question.name().to_string(), assumed.into());
                 continue;
             }
 

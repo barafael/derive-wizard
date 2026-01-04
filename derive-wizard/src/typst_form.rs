@@ -82,13 +82,7 @@ fn generate_question_markup(markup: &mut String, question: &Question) {
             generate_confirm(markup, question);
         }
         QuestionKind::Sequence(questions) => {
-            // Check if this is an enum alternatives sequence
-            let is_enum_alternatives = !questions.is_empty()
-                && questions
-                    .iter()
-                    .all(|q| matches!(q.kind(), QuestionKind::Alternative(_, _)));
-
-            if is_enum_alternatives {
+            if question.kind().is_enum_alternatives() {
                 generate_enum(markup, question, questions);
             } else {
                 // Regular sequence (struct fields)
@@ -255,13 +249,7 @@ fn generate_enum(markup: &mut String, question: &Question, variants: &[Question]
                 // Don't add extra heading for fields inside enum variants
                 match field.kind() {
                     QuestionKind::Sequence(nested_questions) => {
-                        // Check if this is a nested enum
-                        let is_nested_enum = !nested_questions.is_empty()
-                            && nested_questions
-                                .iter()
-                                .all(|q| matches!(q.kind(), QuestionKind::Alternative(_, _)));
-
-                        if is_nested_enum {
+                        if field.kind().is_enum_alternatives() {
                             // Render as enum without struct heading
                             generate_enum(markup, field, nested_questions);
                         } else {

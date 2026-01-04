@@ -118,3 +118,15 @@ impl Answers {
         self.values.iter()
     }
 }
+
+impl From<&derive_wizard_types::AssumedAnswer> for AnswerValue {
+    fn from(assumed: &derive_wizard_types::AssumedAnswer) -> Self {
+        use derive_wizard_types::AssumedAnswer;
+        match assumed {
+            AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
+            AssumedAnswer::Int(i) => AnswerValue::Int(*i),
+            AssumedAnswer::Float(f) => AnswerValue::Float(*f),
+            AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
+        }
+    }
+}

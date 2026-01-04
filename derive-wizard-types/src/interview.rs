@@ -118,6 +118,15 @@ pub enum QuestionKind {
     Alternative(usize, Vec<Question>),
 }
 
+impl QuestionKind {
+    /// Check if this is a Sequence containing only Alternative items (i.e., enum variants).
+    pub fn is_enum_alternatives(&self) -> bool {
+        matches!(self, QuestionKind::Sequence(questions)
+            if !questions.is_empty()
+                && questions.iter().all(|q| matches!(q.kind(), QuestionKind::Alternative(_, _))))
+    }
+}
+
 /// Configuration for a text input question.
 #[derive(Debug, Clone)]
 pub struct InputQuestion {

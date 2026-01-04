@@ -137,14 +137,7 @@ impl DialoguerBackend {
                 answers.insert(id.to_string(), AnswerValue::Bool(answer));
             }
             QuestionKind::Sequence(questions) => {
-                // Check if this is an enum alternatives sequence
-                // (all items are Alternative questions)
-                let is_enum_alternatives = !questions.is_empty()
-                    && questions
-                        .iter()
-                        .all(|q| matches!(q.kind(), QuestionKind::Alternative(_, _)));
-
-                if is_enum_alternatives {
+                if question.kind().is_enum_alternatives() {
                     // This is an enum - present a selection menu
                     let choices: Vec<String> =
                         questions.iter().map(|q| q.name().to_string()).collect();
@@ -243,16 +236,22 @@ impl DialoguerBackend {
             }
             QuestionKind::MultiSelect(multi_q) => {
                 let choice_refs: Vec<&str> = multi_q.options.iter().map(|s| s.as_str()).collect();
-                
+
                 let selections = dialoguer::MultiSelect::new()
                     .with_prompt(Self::strip_prompt_colon(question.prompt()))
                     .items(&choice_refs)
-                    .defaults(&multi_q.defaults.iter().map(|&i| i < multi_q.options.len()).collect::<Vec<_>>())
+                    .defaults(
+                        &multi_q
+                            .defaults
+                            .iter()
+                            .map(|&i| i < multi_q.options.len())
+                            .collect::<Vec<_>>(),
+                    )
                     .interact()
                     .map_err(|e| {
                         BackendError::ExecutionError(format!("Failed to prompt: {}", e))
                     })?;
-                
+
                 let selected_indices: Vec<i64> = selections.into_iter().map(|i| i as i64).collect();
                 answers.insert(id.to_string(), AnswerValue::IntList(selected_indices));
             }
@@ -270,8 +269,6 @@ impl Default for DialoguerBackend {
 
 impl InterviewBackend for DialoguerBackend {
     fn execute(&self, interview: &Interview) -> Result<Answers, BackendError> {
-        use derive_wizard_types::AssumedAnswer;
-
         // Display prelude if present
         if let Some(prelude) = &interview.prelude {
             println!("{}", prelude);
@@ -283,13 +280,7 @@ impl InterviewBackend for DialoguerBackend {
         for question in &interview.sections {
             // Check if question has an assumption - if so, use it and skip prompting
             if let Some(assumed) = question.assumed() {
-                let value = match assumed {
-                    AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
-                    AssumedAnswer::Int(i) => AnswerValue::Int(*i),
-                    AssumedAnswer::Float(f) => AnswerValue::Float(*f),
-                    AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
-                };
-                answers.insert(question.name().to_string(), value);
+                answers.insert(question.name().to_string(), assumed.into());
                 continue;
             }
 
@@ -310,8 +301,6 @@ impl InterviewBackend for DialoguerBackend {
         interview: &Interview,
         validator: &(dyn Fn(&str, &str, &Answers) -> Result<(), String> + Send + Sync),
     ) -> Result<Answers, BackendError> {
-        use derive_wizard_types::AssumedAnswer;
-
         // Display prelude if present
         if let Some(prelude) = &interview.prelude {
             println!("{}", prelude);
@@ -323,13 +312,7 @@ impl InterviewBackend for DialoguerBackend {
         for question in &interview.sections {
             // Check if question has an assumption - if so, use it and skip prompting
             if let Some(assumed) = question.assumed() {
-                let value = match assumed {
-                    AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
-                    AssumedAnswer::Int(i) => AnswerValue::Int(*i),
-                    AssumedAnswer::Float(f) => AnswerValue::Float(*f),
-                    AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
-                };
-                answers.insert(question.name().to_string(), value);
+                answers.insert(question.name().to_string(), assumed.into());
                 continue;
             }
 

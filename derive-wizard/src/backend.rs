@@ -86,7 +86,6 @@ impl TestBackend {
 impl InterviewBackend for TestBackend {
     fn execute(&self, interview: &Interview) -> Result<Answers, BackendError> {
         use crate::interview::{Question, QuestionKind};
-        use derive_wizard_types::AssumedAnswer;
 
         let mut answers = self.answers.clone();
 
@@ -94,13 +93,7 @@ impl InterviewBackend for TestBackend {
         fn collect_assumptions(questions: &[Question], answers: &mut Answers) {
             for question in questions {
                 if let Some(assumed) = question.assumed() {
-                    let value = match assumed {
-                        AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
-                        AssumedAnswer::Int(i) => AnswerValue::Int(*i),
-                        AssumedAnswer::Float(f) => AnswerValue::Float(*f),
-                        AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
-                    };
-                    answers.insert(question.name().to_string(), value);
+                    answers.insert(question.name().to_string(), assumed.into());
                 }
 
                 // Recursively handle nested questions

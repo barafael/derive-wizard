@@ -109,13 +109,7 @@ impl TypstBackend {
                 markup.push_str(")\n\n");
             }
             QuestionKind::Sequence(questions) => {
-                // Check if this is an enum alternatives sequence
-                let is_enum_alternatives = !questions.is_empty()
-                    && questions
-                        .iter()
-                        .all(|q| matches!(q.kind(), QuestionKind::Alternative(_, _)));
-
-                if is_enum_alternatives {
+                if question.kind().is_enum_alternatives() {
                     // Enum - show as radio buttons
                     markup.push_str(&format!("*{}*\n\n", question.prompt()));
 

@@ -64,20 +64,12 @@ impl InterviewBackend for EguiBackend {
         interview: &Interview,
         validator: &(dyn Fn(&str, &str, &Answers) -> Result<(), String> + Send + Sync),
     ) -> Result<Answers, BackendError> {
-        use derive_wizard_types::AssumedAnswer;
-
         let mut answers = Answers::new();
 
         // First, collect all assumed answers
         for question in &interview.sections {
             if let Some(assumed) = question.assumed() {
-                let value = match assumed {
-                    AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
-                    AssumedAnswer::Int(i) => AnswerValue::Int(*i),
-                    AssumedAnswer::Float(f) => AnswerValue::Float(*f),
-                    AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
-                };
-                answers.insert(question.name().to_string(), value);
+                answers.insert(question.name().to_string(), assumed.into());
             }
         }
 
@@ -273,13 +265,7 @@ impl EguiWizardApp {
     ) {
         match question.kind() {
             QuestionKind::Sequence(questions) => {
-                // Check if this is an enum alternatives sequence
-                let is_enum_alternatives = !questions.is_empty()
-                    && questions
-                        .iter()
-                        .all(|q| matches!(q.kind(), QuestionKind::Alternative(_, _)));
-
-                if is_enum_alternatives {
+                if question.kind().is_enum_alternatives() {
                     // This is an enum - render as a selection
                     let alt_key = format!("question_{}", question_idx);
 
@@ -654,13 +640,7 @@ impl EguiWizardApp {
     ) -> Result<(), (String, String)> {
         match question.kind() {
             QuestionKind::Sequence(questions) => {
-                // Check if this is an enum alternatives sequence
-                let is_enum_alternatives = !questions.is_empty()
-                    && questions
-                        .iter()
-                        .all(|q| matches!(q.kind(), QuestionKind::Alternative(_, _)));
-
-                if is_enum_alternatives {
+                if question.kind().is_enum_alternatives() {
                     // This is an enum - handle variant selection
                     let alt_key = format!("question_{}", question_idx);
                     let selected = self

@@ -314,13 +314,7 @@ impl WizardState {
                     });
                 }
                 QuestionKind::Sequence(nested) => {
-                    // Check if this is an enum alternatives sequence
-                    let is_enum = !nested.is_empty()
-                        && nested
-                            .iter()
-                            .all(|q| matches!(q.kind(), QuestionKind::Alternative(_, _)));
-
-                    if is_enum {
+                    if question.kind().is_enum_alternatives() {
                         let options: Vec<String> =
                             nested.iter().map(|q| q.name().to_string()).collect();
                         let parent_id = id.strip_suffix(".alternatives").unwrap_or(&id);
@@ -546,14 +540,10 @@ impl WizardState {
             // Skip assumed questions
             while self.current_index < self.questions.len() {
                 if let Some(assumed) = &self.questions[self.current_index].assumed {
-                    let value = match assumed {
-                        AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
-                        AssumedAnswer::Int(i) => AnswerValue::Int(*i),
-                        AssumedAnswer::Float(f) => AnswerValue::Float(*f),
-                        AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
-                    };
-                    self.answers
-                        .insert(self.questions[self.current_index].id.clone(), value);
+                    self.answers.insert(
+                        self.questions[self.current_index].id.clone(),
+                        assumed.into(),
+                    );
                     self.current_index += 1;
                 } else {
                     // Set default selection for select/confirm/multiselect questions
@@ -985,15 +975,10 @@ impl RatatuiBackend {
         // Skip initially assumed questions
         while state.current_index < state.questions.len() {
             if let Some(assumed) = &state.questions[state.current_index].assumed {
-                let value = match assumed {
-                    AssumedAnswer::String(s) => AnswerValue::String(s.clone()),
-                    AssumedAnswer::Int(i) => AnswerValue::Int(*i),
-                    AssumedAnswer::Float(f) => AnswerValue::Float(*f),
-                    AssumedAnswer::Bool(b) => AnswerValue::Bool(*b),
-                };
-                state
-                    .answers
-                    .insert(state.questions[state.current_index].id.clone(), value);
+                state.answers.insert(
+                    state.questions[state.current_index].id.clone(),
+                    assumed.into(),
+                );
                 state.current_index += 1;
             } else {
                 // Initialize first question's defaults
