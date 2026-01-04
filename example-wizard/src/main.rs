@@ -51,6 +51,9 @@ fn main() {
 
     println!("=== Editing the configuration with suggestions ===");
     println!("The current values will be pre-filled. Press Enter to keep them or type new values.");
-    let updated_config = ShowCase::wizard_builder().with_suggestions(config).build().unwrap();
+    let updated_config = ShowCase::wizard_builder()
+        .with_suggestions(config)
+        .build()
+        .unwrap();
     println!("Updated Config: {updated_config:#?}");
 }

@@ -49,7 +49,8 @@ fn main() {
     let backend = derive_wizard::DialoguerBackend::new();
     let config = ServiceConfig::wizard_builder()
         .with_backend(backend)
-        .build().unwrap();
+        .build()
+        .unwrap();
 
     println!("=== Configuration Created ===");
     println!("{:#?}", config);

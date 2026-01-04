@@ -22,7 +22,10 @@ fn main() {
         .with_title("Application Settings")
         .with_window_size([500.0, 400.0]);
 
-    let settings = AppSettings::wizard_builder().with_backend(backend).build().unwrap();
+    let settings = AppSettings::wizard_builder()
+        .with_backend(backend)
+        .build()
+        .unwrap();
 
     println!("=== Settings Created ===");
     println!("{:#?}", settings);

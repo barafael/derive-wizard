@@ -22,6 +22,7 @@ fn main() {
     println!("The current values will be pre-filled as suggestions.");
     let updated_profile = UserProfile::wizard_builder()
         .with_suggestions(profile)
-        .build().unwrap();
+        .build()
+        .unwrap();
     println!("Updated profile: {updated_profile:#?}");
 }

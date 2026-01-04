@@ -62,7 +62,10 @@ fn main() {
             .with_title("Derive Wizard Showcase")
             .with_window_size([600.0, 700.0]);
 
-        let magic = ShowCase::wizard_builder().with_backend(backend).build().unwrap();
+        let magic = ShowCase::wizard_builder()
+            .with_backend(backend)
+            .build()
+            .unwrap();
         println!("=== Configuration Created ===");
         println!("{magic:#?}");
     }

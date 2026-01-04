@@ -159,20 +159,20 @@ impl DialoguerBackend {
                             BackendError::ExecutionError(format!("Failed to prompt: {}", e))
                         })?;
 
-                    // Store the selected variant name
+                    // Store the selected variant index
                     // The question name/id for enum alternatives is "alternatives"
                     // When nested in a struct field, it becomes "fieldname.alternatives"
-                    // We need to replace ".alternatives" with ".selected_alternative"
-                    // or just use "selected_alternative" for standalone enums
+                    // We need to replace ".alternatives" with the SELECTED_ALTERNATIVE_KEY
+                    // or just use SELECTED_ALTERNATIVE_KEY for standalone enums
                     let parent_prefix = id.strip_suffix(".alternatives");
 
                     let answer_key = if let Some(prefix) = parent_prefix {
-                        format!("{}.selected_alternative", prefix)
+                        format!("{}.{}", prefix, crate::SELECTED_ALTERNATIVE_KEY)
                     } else if id == "alternatives" {
-                        "selected_alternative".to_string()
+                        crate::SELECTED_ALTERNATIVE_KEY.to_string()
                     } else {
                         // Fallback: shouldn't happen but handle it
-                        format!("{}.selected_alternative", id)
+                        format!("{}.{}", id, crate::SELECTED_ALTERNATIVE_KEY)
                     };
 
                     answers.insert(answer_key, AnswerValue::Int(selection as i64));
@@ -224,7 +224,7 @@ impl DialoguerBackend {
 
                 // Store the selected alternative index
                 answers.insert(
-                    "selected_alternative".to_string(),
+                    crate::SELECTED_ALTERNATIVE_KEY.to_string(),
                     AnswerValue::Int(selection as i64),
                 );
 

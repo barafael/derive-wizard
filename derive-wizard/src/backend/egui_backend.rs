@@ -680,16 +680,16 @@ impl EguiWizardApp {
                         .unwrap_or(0);
 
                     if let Some(selected_variant) = questions.get(selected) {
-                        // Store the selected variant name with proper prefixing
+                        // Store the selected variant index with proper prefixing
                         let id = question.id().unwrap_or(question.name());
                         let parent_prefix = id.strip_suffix(".alternatives");
 
                         let answer_key = if let Some(prefix) = parent_prefix {
-                            format!("{}.selected_alternative", prefix)
+                            format!("{}.{}", prefix, crate::SELECTED_ALTERNATIVE_KEY)
                         } else if id == "alternatives" {
-                            "selected_alternative".to_string()
+                            crate::SELECTED_ALTERNATIVE_KEY.to_string()
                         } else {
-                            format!("{}.selected_alternative", id)
+                            format!("{}.{}", id, crate::SELECTED_ALTERNATIVE_KEY)
                         };
 
                         answers.insert(answer_key, AnswerValue::Int(selected as i64));
@@ -785,7 +785,7 @@ impl EguiWizardApp {
 
                 if let Some(alt) = alternatives.get(selected) {
                     answers.insert(
-                        "selected_alternative".to_string(),
+                        crate::SELECTED_ALTERNATIVE_KEY.to_string(),
                         AnswerValue::Int(selected as i64),
                     );
 

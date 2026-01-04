@@ -85,7 +85,10 @@ fn main() {
 
     // Use the dialoguer backend
     let backend = derive_wizard::DialoguerBackend::new();
-    let config = ServerConfig::wizard_builder().with_backend(backend).build().unwrap();
+    let config = ServerConfig::wizard_builder()
+        .with_backend(backend)
+        .build()
+        .unwrap();
 
     println!("\n=== Configuration Complete ===");
     println!("{config:#?}");

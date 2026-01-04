@@ -833,7 +833,7 @@ fn generate_from_answers_enum(name: &syn::Ident, data: &syn::DataEnum) -> proc_m
     });
 
     quote! {
-        let selected = answers.as_int("selected_alternative")?;
+        let selected = answers.as_int(derive_wizard_types::SELECTED_ALTERNATIVE_KEY)?;
         match selected {
             #(#match_arms)*
             _ => Err(derive_wizard::backend::BackendError::ExecutionError(

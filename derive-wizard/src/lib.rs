@@ -20,6 +20,7 @@ pub mod typst_form;
 pub use answer::{AnswerError, AnswerValue, Answers};
 pub use backend::{BackendError, InterviewBackend, TestBackend};
 pub use derive_wizard_macro::*;
+pub use derive_wizard_types::SELECTED_ALTERNATIVE_KEY;
 pub use derive_wizard_types::interview;
 pub use field_path::FieldPath;
 
