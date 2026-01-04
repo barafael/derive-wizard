@@ -261,7 +261,7 @@ impl Default for RequesttyBackend {
 
 impl InterviewBackend for RequesttyBackend {
     fn execute(&self, interview: &crate::interview::Interview) -> Result<Answers, BackendError> {
-        use derive_wizard_types::default::AssumedAnswer;
+        use derive_wizard_types::AssumedAnswer;
 
         // Display prelude if present
         if let Some(prelude) = &interview.prelude {
@@ -301,7 +301,7 @@ impl InterviewBackend for RequesttyBackend {
         interview: &crate::interview::Interview,
         validator: &(dyn Fn(&str, &str, &Answers) -> Result<(), String> + Send + Sync),
     ) -> Result<Answers, BackendError> {
-        use derive_wizard_types::default::AssumedAnswer;
+        use derive_wizard_types::AssumedAnswer;
 
         // Display prelude if present
         if let Some(prelude) = &interview.prelude {

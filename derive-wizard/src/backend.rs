@@ -83,7 +83,7 @@ impl TestBackend {
 impl InterviewBackend for TestBackend {
     fn execute(&self, interview: &Interview) -> Result<Answers, BackendError> {
         use crate::interview::{Question, QuestionKind};
-        use derive_wizard_types::default::AssumedAnswer;
+        use derive_wizard_types::AssumedAnswer;
 
         let mut answers = self.answers.clone();
 

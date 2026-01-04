@@ -113,10 +113,11 @@ fn find_question_by_path<'a>(
 #[derive(Default)]
 pub struct WizardBuilder<T: Wizard> {
     suggestions: Option<T>,
-    partial_suggestions:
-        std::collections::HashMap<FieldPath, derive_wizard_types::default::SuggestedAnswer>,
-    partial_assumptions:
-        std::collections::HashMap<FieldPath, derive_wizard_types::default::AssumedAnswer>,
+    partial_suggestions: std::collections::HashMap<
+        FieldPath,
+        derive_wizard_types::suggested_answer::SuggestedAnswer,
+    >,
+    partial_assumptions: std::collections::HashMap<FieldPath, derive_wizard_types::AssumedAnswer>,
     backend: Option<Box<dyn InterviewBackend>>,
 }
 
@@ -143,7 +144,7 @@ impl<T: Wizard> WizardBuilder<T> {
     pub fn suggest_field(
         mut self,
         field: impl Into<FieldPath>,
-        value: impl Into<derive_wizard_types::default::SuggestedAnswer>,
+        value: impl Into<derive_wizard_types::suggested_answer::SuggestedAnswer>,
     ) -> Self {
         self.partial_suggestions.insert(field.into(), value.into());
         self
@@ -155,7 +156,7 @@ impl<T: Wizard> WizardBuilder<T> {
     pub fn assume_field(
         mut self,
         field: impl Into<FieldPath>,
-        value: impl Into<derive_wizard_types::default::AssumedAnswer>,
+        value: impl Into<derive_wizard_types::AssumedAnswer>,
     ) -> Self {
         self.partial_assumptions.insert(field.into(), value.into());
         self

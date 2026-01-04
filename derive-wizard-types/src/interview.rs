@@ -1,4 +1,4 @@
-use crate::default::{AssumedAnswer, SuggestedAnswer};
+use crate::{AssumedAnswer, SuggestedAnswer};
 
 /// A sequence of sections, which contain questions.
 #[derive(Debug, Clone)]
