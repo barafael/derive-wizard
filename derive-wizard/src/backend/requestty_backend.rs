@@ -426,10 +426,10 @@ impl RequesttyBackend {
                     _ => return Err(BackendError::ExecutionError("Expected list item".into())),
                 };
 
-                // Store the selected alternative name
+                // Store the selected alternative index
                 answers.insert(
                     "selected_alternative".to_string(),
-                    AnswerValue::String(choices[selected_idx].clone()),
+                    AnswerValue::Int(selected_idx as i64),
                 );
 
                 // Execute the selected alternative's questions

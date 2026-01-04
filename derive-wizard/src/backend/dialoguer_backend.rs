@@ -220,10 +220,10 @@ impl DialoguerBackend {
                         BackendError::ExecutionError(format!("Failed to prompt: {}", e))
                     })?;
 
-                // Store the selected alternative name
+                // Store the selected alternative index
                 answers.insert(
-                    id.to_string(),
-                    AnswerValue::String(choices[selection].clone()),
+                    "selected_alternative".to_string(),
+                    AnswerValue::Int(selection as i64),
                 );
 
                 // Execute the selected alternative's nested questions
