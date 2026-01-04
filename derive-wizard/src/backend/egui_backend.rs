@@ -118,9 +118,13 @@ impl InterviewBackend for EguiBackend {
                     return Ok(()); // Channel closed, assume valid
                 }
 
-                // Wait for response without panicking on lock/channel errors
+                // Wait for response with timeout to avoid blocking the GUI event loop
                 match validate_result_rx.lock() {
-                    Ok(rx) => rx.recv().unwrap_or(Ok(())),
+                    Ok(rx) => {
+                        // Use timeout to prevent deadlock during GUI initialization
+                        rx.recv_timeout(std::time::Duration::from_millis(100))
+                            .unwrap_or(Ok(()))
+                    }
                     Err(_) => Ok(()), // Poisoned lock: assume valid instead of panic
                 }
             });
@@ -140,11 +144,13 @@ impl InterviewBackend for EguiBackend {
             });
 
             // Run the GUI - this blocks until the window is closed
-            let _ = eframe::run_native(
+            if let Err(e) = eframe::run_native(
                 &title,
                 options,
                 Box::new(move |_cc| Ok(Box::new(EguiWizardApp::new(interview, tx, gui_validator)))),
-            );
+            ) {
+                eprintln!("eframe::run_native error: {}", e);
+            }
         });
 
         // Get the result from the channel
@@ -165,6 +171,7 @@ struct InterviewState {
     input_buffers: std::collections::HashMap<String, String>,
     selected_alternatives: std::collections::HashMap<String, usize>,
     validation_errors: std::collections::HashMap<String, String>,
+    frame_count: u32,
 }
 
 impl InterviewState {
@@ -173,6 +180,7 @@ impl InterviewState {
             input_buffers: std::collections::HashMap::new(),
             selected_alternatives: std::collections::HashMap::new(),
             validation_errors: std::collections::HashMap::new(),
+            frame_count: 0,
         }
     }
 
@@ -399,9 +407,6 @@ impl EguiWizardApp {
 
         match question.kind() {
             QuestionKind::Input(input_q) => {
-                // Check for validation error before any mutable borrows
-                let has_error = self.state.validation_errors.contains_key(id);
-
                 let buffer = self.state.get_or_init_buffer(id);
                 let mut text_edit = egui::TextEdit::singleline(buffer);
 
@@ -409,39 +414,11 @@ impl EguiWizardApp {
                     text_edit = text_edit.hint_text(default);
                 }
 
-                // Always use scope to keep widget ID consistent (avoids focus jumping)
-                ui.scope(|ui| {
-                    if has_error {
-                        ui.visuals_mut().widgets.inactive.bg_stroke.color = egui::Color32::RED;
-                        ui.visuals_mut().widgets.hovered.bg_stroke.color = egui::Color32::RED;
-                        ui.visuals_mut().widgets.active.bg_stroke.color = egui::Color32::RED;
-                    }
-                    ui.add(text_edit);
-                });
+                ui.add(text_edit);
 
-                // Run validation immediately on any change if validator is configured
-                if input_q.validate.is_some() {
-                    let value = self
-                        .state
-                        .input_buffers
-                        .get(id)
-                        .cloned()
-                        .unwrap_or_default();
-                    let current_answers = self.build_current_answers();
-                    match (self.validator)(id, &value, &current_answers) {
-                        Ok(()) => {
-                            self.state.validation_errors.remove(id);
-                        }
-                        Err(err) => {
-                            self.state.validation_errors.insert(id.to_string(), err);
-                        }
-                    }
-                }
+                self.validate_text_field(id, input_q.validate.is_some());
             }
             QuestionKind::Multiline(multiline_q) => {
-                // Check for validation error before any mutable borrows
-                let has_error = self.state.validation_errors.contains_key(id);
-
                 let buffer = self.state.get_or_init_buffer(id);
                 let mut text_edit = egui::TextEdit::multiline(buffer);
 
@@ -449,70 +426,17 @@ impl EguiWizardApp {
                     text_edit = text_edit.hint_text(default);
                 }
 
-                // Always use scope to keep widget ID consistent (avoids focus jumping)
-                ui.scope(|ui| {
-                    if has_error {
-                        ui.visuals_mut().widgets.inactive.bg_stroke.color = egui::Color32::RED;
-                        ui.visuals_mut().widgets.hovered.bg_stroke.color = egui::Color32::RED;
-                        ui.visuals_mut().widgets.active.bg_stroke.color = egui::Color32::RED;
-                    }
-                    ui.add(text_edit);
-                });
+                ui.add(text_edit);
 
-                // Run validation immediately on any change if validator is configured
-                if multiline_q.validate.is_some() {
-                    let value = self
-                        .state
-                        .input_buffers
-                        .get(id)
-                        .cloned()
-                        .unwrap_or_default();
-                    let current_answers = self.build_current_answers();
-                    match (self.validator)(id, &value, &current_answers) {
-                        Ok(()) => {
-                            self.state.validation_errors.remove(id);
-                        }
-                        Err(err) => {
-                            self.state.validation_errors.insert(id.to_string(), err);
-                        }
-                    }
-                }
+                self.validate_text_field(id, multiline_q.validate.is_some());
             }
             QuestionKind::Masked(masked_q) => {
-                // Check for validation error before any mutable borrows
-                let has_error = self.state.validation_errors.contains_key(id);
-
                 let buffer = self.state.get_or_init_buffer(id);
                 let text_edit = egui::TextEdit::singleline(buffer).password(true);
 
-                // Always use scope to keep widget ID consistent (avoids focus jumping)
-                ui.scope(|ui| {
-                    if has_error {
-                        ui.visuals_mut().widgets.inactive.bg_stroke.color = egui::Color32::RED;
-                        ui.visuals_mut().widgets.hovered.bg_stroke.color = egui::Color32::RED;
-                        ui.visuals_mut().widgets.active.bg_stroke.color = egui::Color32::RED;
-                    }
-                    ui.add(text_edit);
-                });
+                ui.add(text_edit);
 
-                // Run validation immediately on any change if validator is configured
-                if masked_q.validate.is_some() {
-                    let value = self
-                        .state
-                        .input_buffers
-                        .get(id)
-                        .cloned()
-                        .unwrap_or_default();
-                    let current_answers = self.build_current_answers();
-                    match (self.validator)(id, &value, &current_answers) {
-                        Ok(()) => {
-                            self.state.validation_errors.remove(id);
-                        }
-                        Err(err) => {
-                            self.state.validation_errors.insert(id.to_string(), err);
-                        }
-                    }
-                }
+                self.validate_text_field(id, masked_q.validate.is_some());
             }
             QuestionKind::Int(int_q) => {
                 let buffer = self.state.get_or_init_buffer(id);
@@ -598,11 +522,14 @@ impl EguiWizardApp {
             QuestionKind::MultiSelect(multi_q) => {
                 // Use a special encoding for multi-select: comma-separated indices
                 let buffer = self.state.get_or_init_buffer(id);
-                
+
                 // Parse current selections from buffer
                 let mut selected: Vec<bool> = if buffer.is_empty() {
                     // Initialize with defaults
-                    multi_q.options.iter().enumerate()
+                    multi_q
+                        .options
+                        .iter()
+                        .enumerate()
                         .map(|(idx, _)| multi_q.defaults.contains(&idx))
                         .collect()
                 } else {
@@ -625,7 +552,8 @@ impl EguiWizardApp {
                 });
 
                 // Update buffer with selected indices
-                let selected_indices: Vec<String> = selected.iter()
+                let selected_indices: Vec<String> = selected
+                    .iter()
                     .enumerate()
                     .filter_map(|(idx, &sel)| if sel { Some(idx.to_string()) } else { None })
                     .collect();
@@ -643,10 +571,10 @@ impl EguiWizardApp {
         // Show inline validation error for this field with background
         if let Some(error) = self.state.validation_errors.get(id) {
             ui.add_space(2.0);
-            egui::Frame::none()
+            egui::Frame::new()
                 .fill(egui::Color32::from_rgb(255, 230, 230))
-                .inner_margin(egui::Margin::symmetric(8.0, 4.0))
-                .rounding(egui::Rounding::same(4.0))
+                .inner_margin(egui::Margin::symmetric(8, 4))
+                .corner_radius(egui::CornerRadius::same(4))
                 .show(ui, |ui| {
                     ui.colored_label(egui::Color32::from_rgb(180, 0, 0), format!("⚠ {}", error));
                 });
@@ -660,6 +588,33 @@ impl EguiWizardApp {
             answers.insert(key.clone(), AnswerValue::String(value.clone()));
         }
         answers
+    }
+
+    /// Run validation for a text field if it has a validator configured
+    fn validate_text_field(&mut self, id: &str, has_validator: bool) {
+        if !has_validator {
+            return;
+        }
+        // Skip validation on first few frames to avoid race condition with validation thread
+        // This gives the background thread time to initialize before we send requests
+        if self.state.frame_count < 3 {
+            return;
+        }
+        let value = self
+            .state
+            .input_buffers
+            .get(id)
+            .cloned()
+            .unwrap_or_default();
+        let current_answers = self.build_current_answers();
+        match (self.validator)(id, &value, &current_answers) {
+            Ok(()) => {
+                self.state.validation_errors.remove(id);
+            }
+            Err(err) => {
+                self.state.validation_errors.insert(id.to_string(), err);
+            }
+        }
     }
 
     fn validate_and_collect(&mut self) -> Option<Answers> {
@@ -1012,6 +967,7 @@ impl EguiWizardApp {
 
 impl eframe::App for EguiWizardApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.state.frame_count = self.state.frame_count.saturating_add(1);
         self.show_wizard(ctx);
     }
 }
