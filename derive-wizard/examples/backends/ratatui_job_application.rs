@@ -38,6 +38,67 @@ enum Department {
     Operations,
 }
 
+/// Validates full name - must have at least first and last name
+pub fn validate_full_name(input: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Err("Name cannot be empty".to_string());
+    }
+    let parts: Vec<&str> = trimmed.split_whitespace().collect();
+    if parts.len() < 2 {
+        return Err("Please enter your full name (first and last name)".to_string());
+    }
+    if parts.iter().any(|p| p.len() < 2) {
+        return Err("Each name part must be at least 2 characters".to_string());
+    }
+    Ok(())
+}
+
+/// Validates email address format
+pub fn validate_email(input: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
+    if input.is_empty() {
+        return Err("Email cannot be empty".to_string());
+    }
+    if !input.contains('@') {
+        return Err("Email must contain an @ symbol".to_string());
+    }
+    let parts: Vec<&str> = input.split('@').collect();
+    if parts.len() != 2 || parts[0].is_empty() || parts[1].is_empty() {
+        return Err("Email must be in format 'user@domain'".to_string());
+    }
+    if !parts[1].contains('.') {
+        return Err("Email domain must contain a dot (e.g., example.com)".to_string());
+    }
+    Ok(())
+}
+
+/// Validates phone number
+pub fn validate_phone(input: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
+    let digits: String = input.chars().filter(|c| c.is_ascii_digit()).collect();
+    if digits.len() < 10 {
+        return Err("Phone number must have at least 10 digits".to_string());
+    }
+    if digits.len() > 15 {
+        return Err("Phone number is too long".to_string());
+    }
+    Ok(())
+}
+
+/// Validates city name
+pub fn validate_city(input: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Err("City cannot be empty".to_string());
+    }
+    if trimmed.len() < 2 {
+        return Err("City name must be at least 2 characters".to_string());
+    }
+    if trimmed.chars().any(|c| c.is_ascii_digit()) {
+        return Err("City name should not contain numbers".to_string());
+    }
+    Ok(())
+}
+
 #[derive(Debug, Wizard)]
 #[allow(dead_code)]
 #[prelude(
@@ -49,15 +110,19 @@ enum Department {
 struct JobApplication {
     // Personal Information
     #[prompt("Full legal name:")]
+    #[validate("validate_full_name")]
     full_name: String,
 
     #[prompt("Email address:")]
+    #[validate("validate_email")]
     email: String,
 
     #[prompt("Phone number:")]
+    #[validate("validate_phone")]
     phone: String,
 
     #[prompt("City of residence:")]
+    #[validate("validate_city")]
     city: String,
 
     // Position Details
@@ -112,7 +177,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_title("💼 TechCorp Job Application Portal")
         .with_theme(theme);
 
-    let answers = backend.execute(&interview)?;
+    // Use execute_with_validator to enable real-time validation
+    let answers = backend.execute_with_validator(&interview, &JobApplication::validate_field)?;
     let application = JobApplication::from_answers(&answers)?;
 
     println!("\n📄 Application Submitted:");

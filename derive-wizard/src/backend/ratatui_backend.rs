@@ -142,6 +142,8 @@ struct FlatQuestion {
     kind: FlatQuestionKind,
     default_value: Option<String>,
     assumed: Option<AssumedAnswer>,
+    /// Whether this field has custom validation
+    has_validation: bool,
 }
 
 #[derive(Clone)]
@@ -235,6 +237,7 @@ impl WizardState {
                         kind: FlatQuestionKind::Input,
                         default_value: input_q.default.clone(),
                         assumed: question.assumed().cloned(),
+                        has_validation: input_q.validate.is_some(),
                     });
                 }
                 QuestionKind::Multiline(ml_q) => {
@@ -244,15 +247,17 @@ impl WizardState {
                         kind: FlatQuestionKind::Multiline,
                         default_value: ml_q.default.clone(),
                         assumed: question.assumed().cloned(),
+                        has_validation: ml_q.validate.is_some(),
                     });
                 }
-                QuestionKind::Masked(_) => {
+                QuestionKind::Masked(masked_q) => {
                     flat.push(FlatQuestion {
                         id,
                         prompt: question.prompt().to_string(),
                         kind: FlatQuestionKind::Masked,
                         default_value: None,
                         assumed: question.assumed().cloned(),
+                        has_validation: masked_q.validate.is_some(),
                     });
                 }
                 QuestionKind::Int(int_q) => {
@@ -265,6 +270,7 @@ impl WizardState {
                         },
                         default_value: int_q.default.map(|d| d.to_string()),
                         assumed: question.assumed().cloned(),
+                        has_validation: int_q.validate.is_some(),
                     });
                 }
                 QuestionKind::Float(float_q) => {
@@ -277,6 +283,7 @@ impl WizardState {
                         },
                         default_value: float_q.default.map(|d| d.to_string()),
                         assumed: question.assumed().cloned(),
+                        has_validation: float_q.validate.is_some(),
                     });
                 }
                 QuestionKind::Confirm(confirm_q) => {
@@ -290,6 +297,7 @@ impl WizardState {
                             if confirm_q.default { "yes" } else { "no" }.to_string(),
                         ),
                         assumed: question.assumed().cloned(),
+                        has_validation: false,
                     });
                 }
                 QuestionKind::MultiSelect(multi_q) => {
@@ -302,6 +310,7 @@ impl WizardState {
                         },
                         default_value: None,
                         assumed: question.assumed().cloned(),
+                        has_validation: false,
                     });
                 }
                 QuestionKind::Sequence(nested) => {
@@ -325,6 +334,7 @@ impl WizardState {
                             },
                             default_value: None,
                             assumed: question.assumed().cloned(),
+                            has_validation: false,
                         });
                         // Note: For a full implementation, we'd need to handle
                         // dynamically showing variant fields after selection
@@ -344,6 +354,7 @@ impl WizardState {
                         },
                         default_value: None,
                         assumed: question.assumed().cloned(),
+                        has_validation: false,
                     });
                 }
             }
@@ -400,7 +411,10 @@ impl WizardState {
         }
     }
 
-    fn validate_and_submit(&mut self) -> bool {
+    fn validate_and_submit(
+        &mut self,
+        validator: Option<&(dyn Fn(&str, &str, &Answers) -> Result<(), String> + Send + Sync)>,
+    ) -> bool {
         let Some(question) = self.current_question().cloned() else {
             return false;
         };
@@ -414,6 +428,15 @@ impl WizardState {
 
         match &question.kind {
             FlatQuestionKind::Input | FlatQuestionKind::Multiline | FlatQuestionKind::Masked => {
+                // Run custom validation if field has it and validator is provided
+                if question.has_validation {
+                    if let Some(validate) = validator {
+                        if let Err(err) = validate(&question.id, &value, &self.answers) {
+                            self.error_message = Some(err);
+                            return false;
+                        }
+                    }
+                }
                 self.answers
                     .insert(question.id.clone(), AnswerValue::String(value));
             }
@@ -430,6 +453,15 @@ impl WizardState {
                         if n > *max_val {
                             self.error_message = Some(format!("Value must be at most {}", max_val));
                             return false;
+                        }
+                    }
+                    // Run custom validation if field has it and validator is provided
+                    if question.has_validation {
+                        if let Some(validate) = validator {
+                            if let Err(err) = validate(&question.id, &value, &self.answers) {
+                                self.error_message = Some(err);
+                                return false;
+                            }
                         }
                     }
                     self.answers
@@ -453,6 +485,15 @@ impl WizardState {
                         if n > *max_val {
                             self.error_message = Some(format!("Value must be at most {}", max_val));
                             return false;
+                        }
+                    }
+                    // Run custom validation if field has it and validator is provided
+                    if question.has_validation {
+                        if let Some(validate) = validator {
+                            if let Err(err) = validate(&question.id, &value, &self.answers) {
+                                self.error_message = Some(err);
+                                return false;
+                            }
                         }
                     }
                     self.answers
@@ -490,8 +531,11 @@ impl WizardState {
         true
     }
 
-    fn next_question(&mut self) {
-        if self.validate_and_submit() {
+    fn next_question(
+        &mut self,
+        validator: Option<&(dyn Fn(&str, &str, &Answers) -> Result<(), String> + Send + Sync)>,
+    ) {
+        if self.validate_and_submit(validator) {
             self.current_index += 1;
             self.input.clear();
             self.cursor_pos = 0;
@@ -917,6 +961,24 @@ fn draw_completion(frame: &mut Frame, state: &WizardState) {
 
 impl InterviewBackend for RatatuiBackend {
     fn execute(&self, interview: &Interview) -> Result<Answers, BackendError> {
+        self.execute_internal(interview, None)
+    }
+
+    fn execute_with_validator(
+        &self,
+        interview: &Interview,
+        validator: &(dyn Fn(&str, &str, &Answers) -> Result<(), String> + Send + Sync),
+    ) -> Result<Answers, BackendError> {
+        self.execute_internal(interview, Some(validator))
+    }
+}
+
+impl RatatuiBackend {
+    fn execute_internal(
+        &self,
+        interview: &Interview,
+        validator: Option<&(dyn Fn(&str, &str, &Answers) -> Result<(), String> + Send + Sync)>,
+    ) -> Result<Answers, BackendError> {
         let mut terminal = self.setup_terminal()?;
         let mut state = WizardState::new(interview, self.theme.clone(), self.title.clone());
 
@@ -985,7 +1047,7 @@ impl InterviewBackend for RatatuiBackend {
                             break;
                         }
                         KeyCode::Enter => {
-                            state.next_question();
+                            state.next_question(validator);
                         }
                         KeyCode::Up => {
                             if matches!(

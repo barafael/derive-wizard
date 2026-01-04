@@ -1,6 +1,6 @@
 //! Pizza Order Wizard 🍕
 //!
-//! A fun example showing enum selections and nested structures.
+//! A fun example showing enum selections, multi-select, and validation.
 //!
 //! Run with: cargo run --example ratatui_pizza --features ratatui-backend
 
@@ -52,16 +52,53 @@ impl std::fmt::Display for Topping {
     }
 }
 
+/// Validates customer name
+pub fn validate_name(input: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
+    if input.trim().is_empty() {
+        return Err("Name cannot be empty".to_string());
+    }
+    if input.len() < 2 {
+        return Err("Name must be at least 2 characters".to_string());
+    }
+    Ok(())
+}
+
+/// Validates phone number format
+pub fn validate_phone(input: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
+    let digits: String = input.chars().filter(|c| c.is_ascii_digit()).collect();
+    if digits.len() < 10 {
+        return Err("Phone number must have at least 10 digits".to_string());
+    }
+    if digits.len() > 15 {
+        return Err("Phone number is too long".to_string());
+    }
+    Ok(())
+}
+
+/// Validates delivery address
+pub fn validate_address(input: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
+    if input.trim().is_empty() {
+        return Err("Delivery address cannot be empty".to_string());
+    }
+    if input.len() < 10 {
+        return Err("Please enter a complete address".to_string());
+    }
+    Ok(())
+}
+
 #[derive(Debug, Wizard)]
 #[allow(dead_code)]
 struct CustomerInfo {
     #[prompt("Your name:")]
+    #[validate("validate_name")]
     name: String,
 
     #[prompt("Phone number:")]
+    #[validate("validate_phone")]
     phone: String,
 
     #[prompt("Delivery address:")]
+    #[validate("validate_address")]
     address: String,
 }
 
@@ -108,7 +145,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_title("🍕 Pizza Palace Order System")
         .with_theme(theme);
 
-    let answers = backend.execute(&interview)?;
+    // Use execute_with_validator to enable real-time validation
+    let answers = backend.execute_with_validator(&interview, &PizzaOrder::validate_field)?;
     let order = PizzaOrder::from_answers(&answers)?;
 
     println!("\n🧾 Order Summary:");

@@ -1,6 +1,6 @@
 //! Server Configuration Wizard 🖥️
 //!
-//! A technical example for configuring a server deployment.
+//! A technical example for configuring a server deployment with validation.
 //!
 //! Run with: cargo run --example ratatui_server_config --features ratatui-backend
 
@@ -33,6 +33,87 @@ enum LogLevel {
     Error,
 }
 
+/// Validates IP address or hostname format
+pub fn validate_host(input: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Err("Host cannot be empty".to_string());
+    }
+    // Allow 'localhost' or IP-like patterns
+    if trimmed == "localhost" {
+        return Ok(());
+    }
+    // Basic IP validation - 4 octets
+    let parts: Vec<&str> = trimmed.split('.').collect();
+    if parts.len() == 4 && parts.iter().all(|p| p.parse::<u8>().is_ok()) {
+        return Ok(());
+    }
+    // Accept hostnames with at least one dot or localhost
+    if trimmed
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '.' || c == '-')
+    {
+        return Ok(());
+    }
+    Err("Please enter a valid hostname or IP address".to_string())
+}
+
+/// Validates bind address
+pub fn validate_bind_address(input: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Err("Bind address cannot be empty".to_string());
+    }
+    // Common bind addresses
+    if trimmed == "0.0.0.0" || trimmed == "127.0.0.1" || trimmed == "localhost" {
+        return Ok(());
+    }
+    // Validate as IP
+    let parts: Vec<&str> = trimmed.split('.').collect();
+    if parts.len() == 4 && parts.iter().all(|p| p.parse::<u8>().is_ok()) {
+        return Ok(());
+    }
+    Err("Please enter a valid IP address (e.g., 0.0.0.0 or 127.0.0.1)".to_string())
+}
+
+/// Validates database name - alphanumeric and underscores only
+pub fn validate_db_name(input: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Err("Database name cannot be empty".to_string());
+    }
+    if trimmed.len() > 64 {
+        return Err("Database name is too long (max 64 characters)".to_string());
+    }
+    if !trimmed.chars().all(|c| c.is_alphanumeric() || c == '_') {
+        return Err("Database name can only contain letters, numbers, and underscores".to_string());
+    }
+    if trimmed
+        .chars()
+        .next()
+        .map(|c| c.is_ascii_digit())
+        .unwrap_or(false)
+    {
+        return Err("Database name cannot start with a number".to_string());
+    }
+    Ok(())
+}
+
+/// Validates application name
+pub fn validate_app_name(input: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Err("Application name cannot be empty".to_string());
+    }
+    if trimmed.len() < 2 {
+        return Err("Application name must be at least 2 characters".to_string());
+    }
+    if trimmed.len() > 50 {
+        return Err("Application name is too long (max 50 characters)".to_string());
+    }
+    Ok(())
+}
+
 #[derive(Debug, Wizard)]
 #[allow(dead_code)]
 struct DatabaseConfig {
@@ -40,6 +121,7 @@ struct DatabaseConfig {
     db_type: DatabaseType,
 
     #[prompt("Database host (e.g., localhost):")]
+    #[validate("validate_host")]
     host: String,
 
     #[prompt("Database port:")]
@@ -48,6 +130,7 @@ struct DatabaseConfig {
     port: i64,
 
     #[prompt("Database name:")]
+    #[validate("validate_db_name")]
     name: String,
 
     #[prompt("Database username:")]
@@ -67,6 +150,7 @@ struct DatabaseConfig {
 #[allow(dead_code)]
 struct ServerSettings {
     #[prompt("Server bind address (e.g., 0.0.0.0):")]
+    #[validate("validate_bind_address")]
     bind_address: String,
 
     #[prompt("HTTP port:")]
@@ -98,6 +182,7 @@ struct ServerSettings {
 )]
 struct DeploymentConfig {
     #[prompt("Application name:")]
+    #[validate("validate_app_name")]
     app_name: String,
 
     #[prompt("Deployment environment:")]
@@ -149,7 +234,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_title("⚙️  Deployment Configuration Wizard")
         .with_theme(theme);
 
-    let answers = backend.execute(&interview)?;
+    // Use execute_with_validator to enable real-time validation
+    let answers = backend.execute_with_validator(&interview, &DeploymentConfig::validate_field)?;
     let config = DeploymentConfig::from_answers(&answers)?;
 
     println!("\n🔧 Generated Configuration:");
