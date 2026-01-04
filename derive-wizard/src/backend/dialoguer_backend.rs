@@ -253,7 +253,7 @@ impl Default for DialoguerBackend {
 
 impl InterviewBackend for DialoguerBackend {
     fn execute(&self, interview: &Interview) -> Result<Answers, BackendError> {
-        use derive_wizard_types::default::AssumedAnswer;
+        use derive_wizard_types::AssumedAnswer;
 
         // Display prelude if present
         if let Some(prelude) = &interview.prelude {
