@@ -1,5 +1,15 @@
 #![doc = include_str!("../README.md")]
 
+// Require at least one interactive backend feature. This forces users who disable
+// the default `requestty-backend` to opt into another backend instead of getting
+// a runtime error later.
+#[cfg(all(
+    not(feature = "requestty-backend"),
+    not(feature = "egui-backend"),
+    not(feature = "dialoguer-backend"),
+))]
+compile_error!("derive-wizard requires a backend feature. Enable one backend feature.");
+
 pub mod answer;
 pub mod backend;
 pub mod field_path;

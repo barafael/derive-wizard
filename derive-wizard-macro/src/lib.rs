@@ -51,6 +51,13 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
     };
 
     TokenStream::from(quote! {
+        // Compile-time check: ensure the runtime Answers type provides `iter()`.
+        // This prevents macro/runtime version skew from compiling silently.
+        #[allow(dead_code)]
+        const _: fn(&derive_wizard::Answers) = |answers: &derive_wizard::Answers| {
+            let _ = answers.iter();
+        };
+
         impl Wizard for #name {
             fn interview() -> derive_wizard::interview::Interview {
                 #interview_code
