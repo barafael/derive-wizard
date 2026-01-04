@@ -205,10 +205,12 @@ impl<T: Wizard> WizardBuilder<T> {
 
         let backend = self.backend.unwrap_or_else(|| Box::new(RequesttyBackend));
 
-        let mut interview = match &self.suggestions {
-            Some(suggestions) => suggestions.interview_with_suggestions(),
-            None => T::interview(),
-        };
+        let mut interview = self
+            .suggestions
+            .as_ref()
+            .map_or_else(T::interview, |suggestions| {
+                suggestions.interview_with_suggestions()
+            });
 
         // Apply partial suggestions
         for (field_path, value) in self.partial_suggestions {

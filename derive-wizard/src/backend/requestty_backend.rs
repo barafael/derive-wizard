@@ -144,7 +144,7 @@ impl RequesttyBackend {
 
                     let q = requestty::Question::select(id)
                         .message(question.prompt())
-                        .choices(choices.clone())
+                        .choices(choices)
                         .default(0)
                         .build();
 
@@ -158,13 +158,16 @@ impl RequesttyBackend {
                     };
 
                     let parent_prefix = id.strip_suffix(".alternatives");
-                    let answer_key = if let Some(prefix) = parent_prefix {
-                        format!("{}.{}", prefix, crate::SELECTED_ALTERNATIVE_KEY)
-                    } else if id == "alternatives" {
-                        crate::SELECTED_ALTERNATIVE_KEY.to_string()
-                    } else {
-                        format!("{}.{}", id, crate::SELECTED_ALTERNATIVE_KEY)
-                    };
+                    let answer_key = parent_prefix.map_or_else(
+                        || {
+                            if id == "alternatives" {
+                                crate::SELECTED_ALTERNATIVE_KEY.to_string()
+                            } else {
+                                format!("{}.{}", id, crate::SELECTED_ALTERNATIVE_KEY)
+                            }
+                        },
+                        |prefix| format!("{}.{}", prefix, crate::SELECTED_ALTERNATIVE_KEY),
+                    );
 
                     answers.insert(answer_key, AnswerValue::Int(selection as i64));
 
@@ -172,7 +175,7 @@ impl RequesttyBackend {
                     if let QuestionKind::Alternative(_, fields) = selected_variant.kind() {
                         for field_q in fields {
                             if let Some(prefix) = parent_prefix {
-                                let field_id = field_q.id().unwrap_or(field_q.name());
+                                let field_id = field_q.id().unwrap_or_else(|| field_q.name());
                                 let prefixed_id = format!("{}.{}", prefix, field_id);
                                 let prefixed_question = Question::new(
                                     Some(prefixed_id.clone()),
@@ -368,7 +371,7 @@ impl RequesttyBackend {
 
                     let q = requestty::Question::select(id)
                         .message(question.prompt())
-                        .choices(choices.clone())
+                        .choices(choices)
                         .default(0)
                         .build();
 
@@ -388,14 +391,17 @@ impl RequesttyBackend {
                     // or just use SELECTED_ALTERNATIVE_KEY for standalone enums
                     let parent_prefix = id.strip_suffix(".alternatives");
 
-                    let answer_key = if let Some(prefix) = parent_prefix {
-                        format!("{}.{}", prefix, crate::SELECTED_ALTERNATIVE_KEY)
-                    } else if id == "alternatives" {
-                        crate::SELECTED_ALTERNATIVE_KEY.to_string()
-                    } else {
-                        // Fallback: shouldn't happen but handle it
-                        format!("{}.{}", id, crate::SELECTED_ALTERNATIVE_KEY)
-                    };
+                    let answer_key = parent_prefix.map_or_else(
+                        || {
+                            if id == "alternatives" {
+                                crate::SELECTED_ALTERNATIVE_KEY.to_string()
+                            } else {
+                                // Fallback: shouldn't happen but handle it
+                                format!("{}.{}", id, crate::SELECTED_ALTERNATIVE_KEY)
+                            }
+                        },
+                        |prefix| format!("{}.{}", prefix, crate::SELECTED_ALTERNATIVE_KEY),
+                    );
 
                     answers.insert(answer_key, AnswerValue::Int(selection as i64));
 
@@ -406,7 +412,7 @@ impl RequesttyBackend {
                         for field_q in fields {
                             // If there's a parent prefix (e.g., "payment"), prefix the field questions
                             if let Some(prefix) = parent_prefix {
-                                let field_id = field_q.id().unwrap_or(field_q.name());
+                                let field_id = field_q.id().unwrap_or_else(|| field_q.name());
                                 let prefixed_id = format!("{}.{}", prefix, field_id);
                                 let prefixed_question = Question::new(
                                     Some(prefixed_id.clone()),
@@ -436,7 +442,7 @@ impl RequesttyBackend {
 
                 let q = requestty::Question::select(id)
                     .message(question.prompt())
-                    .choices(choices.clone())
+                    .choices(choices)
                     .default(*default_idx)
                     .build();
 

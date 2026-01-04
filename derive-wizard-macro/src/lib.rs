@@ -276,11 +276,10 @@ fn build_question(
     let kind = determine_question_kind(&field.ty, &attrs);
 
     // Apply parent prefix if present
-    let prefixed_name = if let Some(prefix) = parent_prefix {
-        format!("{}.{}", prefix, field_name)
-    } else {
-        field_name.clone()
-    };
+    let prefixed_name = parent_prefix.map_or_else(
+        || field_name.clone(),
+        |prefix| format!("{}.{}", prefix, field_name),
+    );
 
     // Detect nested Wizard types: non-builtin type with explicit #[prompt] attribute
     // Vec<EnumType> fields are multi-select, not nested wizards
@@ -384,12 +383,7 @@ fn extract_vec_inner_type(ty: &Type) -> Option<&Type> {
 
 /// Check if a type is a Vec<T> where T is a non-builtin (likely an enum)
 fn is_vec_of_enum(ty: &Type) -> bool {
-    if let Some(inner) = extract_vec_inner_type(ty) {
-        // If inner type is not a builtin, it's likely an enum that implements Wizard
-        !is_builtin_type(inner)
-    } else {
-        false
-    }
+    extract_vec_inner_type(ty).is_some_and(|inner| !is_builtin_type(inner))
 }
 
 struct FieldAttrs {
@@ -1038,8 +1032,7 @@ fn generate_validate_field_method_struct(data: &syn::DataStruct) -> proc_macro2:
         if is_nested {
             let prefix = format!("{}.", field_name);
             nested_arms.push(quote! {
-                if field.starts_with(#prefix) {
-                    let nested_field = &field[#prefix.len()..];
+                if let Some(nested_field) = field.strip_prefix(#prefix) {
                     return <#field_ty as derive_wizard::Wizard>::validate_field(nested_field, value, answers);
                 }
             });
@@ -1103,8 +1096,7 @@ fn generate_validate_field_method_enum(data: &syn::DataEnum) -> proc_macro2::Tok
                     if is_nested {
                         let prefix = format!("{}.", field_name);
                         nested_arms.push(quote! {
-                            if field.starts_with(#prefix) {
-                                let nested_field = &field[#prefix.len()..];
+                            if let Some(nested_field) = field.strip_prefix(#prefix) {
                                 return <#field_ty as derive_wizard::Wizard>::validate_field(nested_field, value, answers);
                             }
                         });
@@ -1134,8 +1126,7 @@ fn generate_validate_field_method_enum(data: &syn::DataEnum) -> proc_macro2::Tok
                     if is_nested {
                         let prefix = format!("{}.", field_name);
                         nested_arms.push(quote! {
-                            if field.starts_with(#prefix) {
-                                let nested_field = &field[#prefix.len()..];
+                            if let Some(nested_field) = field.strip_prefix(#prefix) {
                                 return <#field_ty as derive_wizard::Wizard>::validate_field(nested_field, value, answers);
                             }
                         });
