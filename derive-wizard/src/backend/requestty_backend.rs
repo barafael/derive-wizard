@@ -10,6 +10,198 @@ impl RequesttyBackend {
         Self
     }
 
+    fn execute_question_with_validator(
+        &self,
+        question: &Question,
+        answers: &mut Answers,
+        validator: &(dyn Fn(&str, &str, &Answers) -> Result<(), String> + Send + Sync),
+    ) -> Result<(), BackendError> {
+        let id = question.id().unwrap_or_else(|| question.name());
+
+        match question.kind() {
+            QuestionKind::Input(input_q) => {
+                let build_question = || {
+                    let mut q = requestty::Question::input(id).message(question.prompt());
+
+                    if let Some(default) = &input_q.default {
+                        q = q.default(default.clone());
+                    }
+
+                    let answers_for_submit = answers.clone();
+                    let answers_for_key = answers.clone();
+                    q = q
+                        .validate(move |value: &str, _prev_answers| -> Result<(), String> {
+                            validator(id, value, &answers_for_submit)
+                        })
+                        .validate_on_key(move |value: &str, _prev_answers| {
+                            validator(id, value, &answers_for_key).is_ok()
+                        });
+
+                    q.build()
+                };
+
+                loop {
+                    match requestty::prompt_one(build_question()) {
+                        Ok(requestty::Answer::String(s)) => {
+                            // Double-check with validator in case requestty didn't intercept
+                            if let Err(msg) = validator(id, &s, answers) {
+                                println!("{msg}");
+                                continue;
+                            }
+                            answers.insert(id.to_string(), AnswerValue::String(s));
+                            break;
+                        }
+                        Ok(_) => {
+                            return Err(BackendError::ExecutionError(
+                                "Expected string answer".to_string(),
+                            ));
+                        }
+                        Err(e) => {
+                            println!("{e}");
+                            continue;
+                        }
+                    }
+                }
+            }
+            QuestionKind::Multiline(multiline_q) => {
+                let build_question = || {
+                    let mut q = requestty::Question::editor(id).message(question.prompt());
+
+                    if let Some(default) = &multiline_q.default {
+                        q = q.default(default.clone());
+                    }
+
+                    let answers_for_submit = answers.clone();
+                    q = q.validate(move |value: &str, _prev_answers| -> Result<(), String> {
+                        validator(id, value, &answers_for_submit)
+                    });
+
+                    q.build()
+                };
+
+                loop {
+                    match requestty::prompt_one(build_question()) {
+                        Ok(requestty::Answer::String(s)) => {
+                            answers.insert(id.to_string(), AnswerValue::String(s));
+                            break;
+                        }
+                        Ok(_) => {
+                            return Err(BackendError::ExecutionError(
+                                "Expected string answer".to_string(),
+                            ));
+                        }
+                        Err(e) => {
+                            println!("{e}");
+                            continue;
+                        }
+                    }
+                }
+            }
+            QuestionKind::Masked(masked_q) => {
+                let build_question = || {
+                    let mut q = requestty::Question::password(id).message(question.prompt());
+
+                    if let Some(mask) = masked_q.mask {
+                        q = q.mask(mask);
+                    }
+
+                    let answers_for_submit = answers.clone();
+                    q = q.validate(move |value: &str, _prev_answers| -> Result<(), String> {
+                        validator(id, value, &answers_for_submit)
+                    });
+
+                    q.build()
+                };
+
+                loop {
+                    match requestty::prompt_one(build_question()) {
+                        Ok(requestty::Answer::String(s)) => {
+                            answers.insert(id.to_string(), AnswerValue::String(s));
+                            break;
+                        }
+                        Ok(_) => {
+                            return Err(BackendError::ExecutionError(
+                                "Expected string answer".to_string(),
+                            ));
+                        }
+                        Err(e) => {
+                            println!("{e}");
+                            continue;
+                        }
+                    }
+                }
+            }
+            QuestionKind::Sequence(questions) => {
+                // Keep enum handling consistent with execute_question
+                let is_enum_alternatives = !questions.is_empty()
+                    && questions
+                        .iter()
+                        .all(|q| matches!(q.kind(), QuestionKind::Alternative(_, _)));
+
+                if is_enum_alternatives {
+                    let choices: Vec<String> =
+                        questions.iter().map(|q| q.name().to_string()).collect();
+
+                    let q = requestty::Question::select(id)
+                        .message(question.prompt())
+                        .choices(choices.clone())
+                        .default(0)
+                        .build();
+
+                    let answer = requestty::prompt_one(q).map_err(|e| {
+                        BackendError::ExecutionError(format!("Failed to prompt: {e}"))
+                    })?;
+
+                    let selection = match answer {
+                        requestty::Answer::ListItem(item) => item.index,
+                        _ => return Err(BackendError::ExecutionError("Expected list item".into())),
+                    };
+
+                    let parent_prefix = id.strip_suffix(".alternatives");
+                    let answer_key = if let Some(prefix) = parent_prefix {
+                        format!("{}.selected_alternative", prefix)
+                    } else if id == "alternatives" {
+                        "selected_alternative".to_string()
+                    } else {
+                        format!("{}.selected_alternative", id)
+                    };
+
+                    answers.insert(answer_key, AnswerValue::String(choices[selection].clone()));
+
+                    let selected_variant = &questions[selection];
+                    if let QuestionKind::Alternative(_, fields) = selected_variant.kind() {
+                        for field_q in fields {
+                            if let Some(prefix) = parent_prefix {
+                                let field_id = field_q.id().unwrap_or(field_q.name());
+                                let prefixed_id = format!("{}.{}", prefix, field_id);
+                                let prefixed_question = Question::new(
+                                    Some(prefixed_id.clone()),
+                                    prefixed_id,
+                                    field_q.prompt().to_string(),
+                                    field_q.kind().clone(),
+                                );
+                                self.execute_question_with_validator(
+                                    &prefixed_question,
+                                    answers,
+                                    validator,
+                                )?;
+                            } else {
+                                self.execute_question_with_validator(field_q, answers, validator)?;
+                            }
+                        }
+                    }
+                } else {
+                    for q in questions {
+                        self.execute_question_with_validator(q, answers, validator)?;
+                    }
+                }
+            }
+            _ => self.execute_question(question, answers)?,
+        }
+
+        Ok(())
+    }
+
     fn execute_question(
         &self,
         question: &Question,
@@ -324,42 +516,8 @@ impl InterviewBackend for RequesttyBackend {
                 continue;
             }
 
-            // Execute question with validation for Input fields
-            let id = question.id().unwrap_or_else(|| question.name());
-
-            match question.kind() {
-                QuestionKind::Input(input_q) if input_q.validate.is_some() => {
-                    // Input with validation
-                    let mut q = requestty::Question::input(id).message(question.prompt());
-
-                    if let Some(default) = &input_q.default {
-                        q = q.default(default.clone());
-                    }
-
-                    // Add validation - requestty can validate on both key and submit
-                    let answers_clone = answers.clone();
-                    let answers_clone2 = answers.clone();
-                    q = q
-                        .validate(move |value: &str, _prev_answers| -> Result<(), String> {
-                            validator(id, value, &answers_clone)
-                        })
-                        .validate_on_key(move |value: &str, _prev_answers| {
-                            validator(id, value, &answers_clone2).is_ok()
-                        });
-
-                    let answer = requestty::prompt_one(q.build()).map_err(|e| {
-                        BackendError::ExecutionError(format!("Failed to prompt: {e}"))
-                    })?;
-
-                    if let requestty::Answer::String(s) = answer {
-                        answers.insert(id.to_string(), AnswerValue::String(s));
-                    }
-                }
-                _ => {
-                    // Use regular execution for all other question types
-                    self.execute_question(question, &mut answers)?;
-                }
-            }
+            // Execute with validation support for nested questions
+            self.execute_question_with_validator(question, &mut answers, validator)?;
         }
 
         // Display epilogue if present

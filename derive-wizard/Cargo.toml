@@ -117,6 +117,16 @@ name = "typst_form"
 path = "examples/features/typst_form.rs"
 required-features = ["typst-form"]
 
+[[example]]
+name = "nested_validation"
+path = "examples/features/nested_validation.rs"
+required-features = ["requestty-backend"]
+
+[[example]]
+name = "egui_nested_validation"
+path = "examples/features/egui_nested_validation.rs"
+required-features = ["egui-backend"]
+
 # Builder examples
 [[example]]
 name = "builder_api"

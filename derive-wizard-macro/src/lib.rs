@@ -38,15 +38,8 @@ fn implement_wizard(input: &syn::DeriveInput) -> TokenStream {
     };
 
     let validate_field_code = match &input.data {
-        Data::Struct(data) => generate_validate_field_method(data),
-        Data::Enum(_data) => {
-            // For enums, return a stub
-            quote! {
-                fn validate_field(_field: &str, _value: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
-                    Ok(())
-                }
-            }
-        }
+        Data::Struct(data) => generate_validate_field_method_struct(data),
+        Data::Enum(data) => generate_validate_field_method_enum(data),
         Data::Union(_) => unimplemented!(),
     };
 
@@ -743,12 +736,31 @@ fn generate_answer_extraction(ty: &Type, field_name: &str) -> proc_macro2::Token
                     nested_answers.insert(stripped.to_string(), value.clone());
                 }
             }
+
+            // Run nested validators before constructing the nested Wizard type.
+            for (nested_key, nested_value) in nested_answers.iter() {
+                let nested_value_str = match nested_value {
+                    derive_wizard::AnswerValue::String(s) => s.clone(),
+                    derive_wizard::AnswerValue::Int(i) => i.to_string(),
+                    derive_wizard::AnswerValue::Float(f) => f.to_string(),
+                    derive_wizard::AnswerValue::Bool(b) => b.to_string(),
+                    derive_wizard::AnswerValue::Nested(_) => continue,
+                };
+
+                <#ty as derive_wizard::Wizard>::validate_field(
+                    nested_key,
+                    &nested_value_str,
+                    &nested_answers,
+                )
+                .map_err(|err| derive_wizard::backend::BackendError::ExecutionError(err))?;
+            }
+
             <#ty as derive_wizard::Wizard>::from_answers(&nested_answers)?
         }
     }
 }
 
-fn generate_validate_field_method(data: &syn::DataStruct) -> proc_macro2::TokenStream {
+fn generate_validate_field_method_struct(data: &syn::DataStruct) -> proc_macro2::TokenStream {
     let Fields::Named(fields) = &data.fields else {
         return quote! {
             fn validate_field(_field: &str, _value: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
@@ -759,19 +771,34 @@ fn generate_validate_field_method(data: &syn::DataStruct) -> proc_macro2::TokenS
 
     // Collect all fields with validators
     let mut validator_arms = Vec::new();
+    // Collect nested wizard fields for delegation
+    let mut nested_arms = Vec::new();
 
     for field in &fields.named {
         let field_name = field.ident.as_ref().unwrap().to_string();
         let attrs = FieldAttrs::extract(&field.attrs, &field_name);
+        let field_ty = &field.ty;
 
         if let Some(ident) = attrs.validate_ident {
             validator_arms.push(quote! {
                 #field_name => #ident(value, answers),
             });
         }
+
+        // Check if this is a nested wizard type (non-builtin, non-mask, non-multiline)
+        let is_builtin = is_builtin_type(field_ty);
+        if !is_builtin && !attrs.mask && !attrs.multiline {
+            let prefix = format!("{}.", field_name);
+            nested_arms.push(quote! {
+                if field.starts_with(#prefix) {
+                    let nested_field = &field[#prefix.len()..];
+                    return <#field_ty as derive_wizard::Wizard>::validate_field(nested_field, value, answers);
+                }
+            });
+        }
     }
 
-    if validator_arms.is_empty() {
+    if validator_arms.is_empty() && nested_arms.is_empty() {
         // No validators, return a stub
         quote! {
             fn validate_field(_field: &str, _value: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
@@ -781,6 +808,99 @@ fn generate_validate_field_method(data: &syn::DataStruct) -> proc_macro2::TokenS
     } else {
         quote! {
             fn validate_field(field: &str, value: &str, answers: &derive_wizard::Answers) -> Result<(), String> {
+                // Check for nested wizard fields first
+                #(#nested_arms)*
+
+                // Then check direct field validators
+                match field {
+                    #(#validator_arms)*
+                    _ => Ok(()),
+                }
+            }
+        }
+    }
+}
+
+fn generate_validate_field_method_enum(data: &syn::DataEnum) -> proc_macro2::TokenStream {
+    // Collect all validators from all variants
+    let mut validator_arms = Vec::new();
+    // Collect nested wizard fields for delegation
+    let mut nested_arms = Vec::new();
+
+    for variant in &data.variants {
+        match &variant.fields {
+            Fields::Unit => {
+                // No fields, no validation needed
+            }
+            Fields::Unnamed(fields) => {
+                // Tuple variant fields
+                for (i, field) in fields.unnamed.iter().enumerate() {
+                    let field_name = format!("field_{}", i);
+                    let attrs = FieldAttrs::extract(&field.attrs, &field_name);
+                    let field_ty = &field.ty;
+
+                    if let Some(ident) = attrs.validate_ident {
+                        validator_arms.push(quote! {
+                            #field_name => #ident(value, answers),
+                        });
+                    }
+
+                    // Check if this is a nested wizard type
+                    let is_builtin = is_builtin_type(field_ty);
+                    if !is_builtin && !attrs.mask && !attrs.multiline {
+                        let prefix = format!("{}.", field_name);
+                        nested_arms.push(quote! {
+                            if field.starts_with(#prefix) {
+                                let nested_field = &field[#prefix.len()..];
+                                return <#field_ty as derive_wizard::Wizard>::validate_field(nested_field, value, answers);
+                            }
+                        });
+                    }
+                }
+            }
+            Fields::Named(fields) => {
+                // Struct variant fields
+                for field in &fields.named {
+                    let field_name = field.ident.as_ref().unwrap().to_string();
+                    let attrs = FieldAttrs::extract(&field.attrs, &field_name);
+                    let field_ty = &field.ty;
+
+                    if let Some(ident) = attrs.validate_ident {
+                        validator_arms.push(quote! {
+                            #field_name => #ident(value, answers),
+                        });
+                    }
+
+                    // Check if this is a nested wizard type
+                    let is_builtin = is_builtin_type(field_ty);
+                    if !is_builtin && !attrs.mask && !attrs.multiline {
+                        let prefix = format!("{}.", field_name);
+                        nested_arms.push(quote! {
+                            if field.starts_with(#prefix) {
+                                let nested_field = &field[#prefix.len()..];
+                                return <#field_ty as derive_wizard::Wizard>::validate_field(nested_field, value, answers);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    if validator_arms.is_empty() && nested_arms.is_empty() {
+        // No validators, return a stub
+        quote! {
+            fn validate_field(_field: &str, _value: &str, _answers: &derive_wizard::Answers) -> Result<(), String> {
+                Ok(())
+            }
+        }
+    } else {
+        quote! {
+            fn validate_field(field: &str, value: &str, answers: &derive_wizard::Answers) -> Result<(), String> {
+                // Check for nested wizard fields first
+                #(#nested_arms)*
+
+                // Then check direct field validators
                 match field {
                     #(#validator_arms)*
                     _ => Ok(()),
