@@ -692,10 +692,7 @@ impl EguiWizardApp {
                             format!("{}.selected_alternative", id)
                         };
 
-                        answers.insert(
-                            answer_key,
-                            AnswerValue::String(selected_variant.name().to_string()),
-                        );
+                        answers.insert(answer_key, AnswerValue::Int(selected as i64));
 
                         // Validate the selected variant's fields - collect all errors
                         if let QuestionKind::Alternative(_, fields) = selected_variant.kind() {
@@ -789,7 +786,7 @@ impl EguiWizardApp {
                 if let Some(alt) = alternatives.get(selected) {
                     answers.insert(
                         "selected_alternative".to_string(),
-                        AnswerValue::String(alt.name().to_string()),
+                        AnswerValue::Int(selected as i64),
                     );
 
                     if let QuestionKind::Alternative(_, alts) = alt.kind() {

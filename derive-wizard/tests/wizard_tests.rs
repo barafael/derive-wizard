@@ -105,7 +105,7 @@ fn test_enum_simple_variant() {
     let backend = TestBackend::new()
         .with_string("item", "Laptop")
         .with_int("quantity", 2)
-        .with_string("payment.selected_alternative", "Cash");
+        .with_int("payment.selected_alternative", 0); // Cash
 
     let result = Order::wizard_builder().with_backend(backend).build().unwrap();
 
@@ -124,7 +124,7 @@ fn test_enum_variant_with_fields() {
     let backend = TestBackend::new()
         .with_string("item", "Laptop")
         .with_int("quantity", 2)
-        .with_string("payment.selected_alternative", "CreditCard")
+        .with_int("payment.selected_alternative", 1) // CreditCard
         .with_string("payment.number", "1234-5678-9012-3456")
         .with_string("payment.cvv", "123");
 
@@ -148,7 +148,7 @@ fn test_different_enum_variant() {
     let backend = TestBackend::new()
         .with_string("item", "Phone")
         .with_int("quantity", 1)
-        .with_string("payment.selected_alternative", "BankTransfer")
+        .with_int("payment.selected_alternative", 2) // BankTransfer
         .with_string("payment.account", "DE89370400440532013000");
 
     let result = Order::wizard_builder().with_backend(backend).build().unwrap();
@@ -288,7 +288,7 @@ struct Account {
 fn test_struct_with_enum_field() {
     let backend = TestBackend::new()
         .with_string("username", "alice")
-        .with_string("status.selected_alternative", "Pending")
+        .with_int("status.selected_alternative", 2) // Pending
         .with_string("status.reason", "Awaiting verification");
 
     let result = Account::wizard_builder().with_backend(backend).build().unwrap();

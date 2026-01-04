@@ -173,7 +173,7 @@ impl DialoguerBackend {
                         format!("{}.selected_alternative", id)
                     };
 
-                    answers.insert(answer_key, AnswerValue::String(choices[selection].clone()));
+                    answers.insert(answer_key, AnswerValue::Int(selection as i64));
 
                     // Execute the selected variant's fields
                     // Need to prefix them if this enum is a field in a struct

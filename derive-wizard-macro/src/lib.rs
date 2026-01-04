@@ -665,13 +665,13 @@ fn generate_from_answers_struct(
 }
 
 fn generate_from_answers_enum(name: &syn::Ident, data: &syn::DataEnum) -> proc_macro2::TokenStream {
-    let match_arms = data.variants.iter().map(|variant| {
+    let match_arms = data.variants.iter().enumerate().map(|(idx, variant)| {
         let variant_name = &variant.ident;
-        let variant_str = variant_name.to_string();
+        let idx_lit = idx as i64;
 
         match &variant.fields {
             Fields::Unit => quote! {
-                #variant_str => Ok(#name::#variant_name),
+                #idx_lit => Ok(#name::#variant_name),
             },
             Fields::Unnamed(fields) => {
                 let constructions = fields.unnamed.iter().enumerate().map(|(i, field)| {
@@ -679,7 +679,7 @@ fn generate_from_answers_enum(name: &syn::Ident, data: &syn::DataEnum) -> proc_m
                     generate_answer_extraction(&field.ty, &field_name)
                 });
                 quote! {
-                    #variant_str => Ok(#name::#variant_name(#(#constructions),*)),
+                    #idx_lit => Ok(#name::#variant_name(#(#constructions),*)),
                 }
             }
             Fields::Named(fields) => {
@@ -690,18 +690,18 @@ fn generate_from_answers_enum(name: &syn::Ident, data: &syn::DataEnum) -> proc_m
                     quote! { #field_name: #extraction }
                 });
                 quote! {
-                    #variant_str => Ok(#name::#variant_name { #(#constructions),* }),
+                    #idx_lit => Ok(#name::#variant_name { #(#constructions),* }),
                 }
             }
         }
     });
 
     quote! {
-        let selected = answers.as_string("selected_alternative")?;
-        match selected.as_str() {
+        let selected = answers.as_int("selected_alternative")?;
+        match selected {
             #(#match_arms)*
             _ => Err(derive_wizard::backend::BackendError::ExecutionError(
-                format!("Unknown variant: {}", selected)
+                format!("Unknown variant index: {}", selected)
             ))
         }
     }

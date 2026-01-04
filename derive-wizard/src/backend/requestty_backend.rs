@@ -166,7 +166,7 @@ impl RequesttyBackend {
                         format!("{}.selected_alternative", id)
                     };
 
-                    answers.insert(answer_key, AnswerValue::String(choices[selection].clone()));
+                    answers.insert(answer_key, AnswerValue::Int(selection as i64));
 
                     let selected_variant = &questions[selection];
                     if let QuestionKind::Alternative(_, fields) = selected_variant.kind() {
@@ -359,7 +359,7 @@ impl RequesttyBackend {
                         _ => return Err(BackendError::ExecutionError("Expected list item".into())),
                     };
 
-                    // Store the selected variant name
+                    // Store the selected variant index
                     // The question name/id for enum alternatives is "alternatives"
                     // When nested in a struct field, it becomes "fieldname.alternatives"
                     // We need to replace ".alternatives" with ".selected_alternative"
@@ -375,7 +375,7 @@ impl RequesttyBackend {
                         format!("{}.selected_alternative", id)
                     };
 
-                    answers.insert(answer_key, AnswerValue::String(choices[selection].clone()));
+                    answers.insert(answer_key, AnswerValue::Int(selection as i64));
 
                     // Execute the selected variant's fields
                     // Need to prefix them if this enum is a field in a struct
