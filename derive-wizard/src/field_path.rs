@@ -1,7 +1,7 @@
 /// A field path for accessing nested wizard fields.
 ///
 /// This can be created from a simple string (for flat fields) or from
-/// a path array (for nested fields).
+/// a path array (for nested fields). Paths use dot (`.`) as the separator.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FieldPath {
     segments: Vec<String>,
@@ -13,10 +13,10 @@ impl FieldPath {
         Self { segments }
     }
 
-    /// Create a field path from a slash-separated string.
-    pub fn from_slash_path(path: &str) -> Self {
+    /// Create a field path from a dot-separated string.
+    pub fn from_path(path: &str) -> Self {
         Self {
-            segments: path.split('/').map(|s| s.to_string()).collect(),
+            segments: path.split('.').map(|s| s.to_string()).collect(),
         }
     }
 
@@ -25,9 +25,9 @@ impl FieldPath {
         &self.segments
     }
 
-    /// Convert this path to a slash-separated string.
-    pub fn to_slash_path(&self) -> String {
-        self.segments.join("/")
+    /// Convert this path to a dot-separated string.
+    pub fn to_path(&self) -> String {
+        self.segments.join(".")
     }
 
     /// Get the depth of this path (number of segments).
@@ -38,9 +38,9 @@ impl FieldPath {
 
 impl From<&str> for FieldPath {
     fn from(s: &str) -> Self {
-        // Check if it contains a slash - if so, treat as path
-        if s.contains('/') {
-            Self::from_slash_path(s)
+        // Check if it contains a dot - if so, treat as path
+        if s.contains('.') {
+            Self::from_path(s)
         } else {
             // Single segment
             Self::new(vec![s.to_string()])
@@ -76,10 +76,10 @@ impl From<&[&str]> for FieldPath {
 /// field!(name); // expands to FieldPath from "name"
 ///
 /// // Nested field
-/// field!(Person::contact::email); // expands to FieldPath from "contact/email"
+/// field!(Person::contact::email); // expands to FieldPath from "contact.email"
 ///
 /// // Multiple levels
-/// field!(Company::address::location::city); // expands to FieldPath from "address/location/city"
+/// field!(Company::address::location::city); // expands to FieldPath from "address.location.city"
 /// ```
 #[macro_export]
 macro_rules! field {

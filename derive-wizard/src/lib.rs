@@ -86,6 +86,8 @@ pub trait Wizard: Sized {
 ///
 /// This searches through the interview hierarchy, navigating into
 /// nested `QuestionKind::Sequence` to find the target question.
+/// Questions can be named either hierarchically (separate questions)
+/// or with dot-separated paths (e.g., "address.street").
 fn find_question_by_path<'a>(
     questions: &'a mut [interview::Question],
     path: &FieldPath,
@@ -96,9 +98,19 @@ fn find_question_by_path<'a>(
         return None;
     }
 
+    // Try to find by full dot-separated path first (flat question naming)
+    let full_path = path.to_path();
+
+    // Check if any question matches the full path
+    let full_path_idx = questions.iter().position(|q| q.name() == full_path);
+    if let Some(idx) = full_path_idx {
+        return Some(&mut questions[idx]);
+    }
+
     // If it's a single segment, search at this level
     if segments.len() == 1 {
-        return questions.iter_mut().find(|q| q.name() == segments[0]);
+        let idx = questions.iter().position(|q| q.name() == segments[0])?;
+        return Some(&mut questions[idx]);
     }
 
     // Multi-segment path: find the first segment at this level
