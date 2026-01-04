@@ -16,7 +16,7 @@ enum PizzaSize {
         #[prompt("What's the occasion?")]
         occasion: String,
     },
-    Custom(#[prompt("Enter custom size in cm:")] u8),
+    Custom(#[prompt("Custom size in cm:")] u8),
 }
 
 #[derive(Debug, Wizard)]

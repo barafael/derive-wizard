@@ -22,6 +22,7 @@ pub enum Size {
     #[default]
     Medium,
     Large,
+    Custom(#[prompt("Custom size in cm:")] u8),
 }
 
 #[derive(Debug, Wizard)]
