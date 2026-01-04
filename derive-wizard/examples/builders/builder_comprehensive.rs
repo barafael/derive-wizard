@@ -88,8 +88,7 @@ fn run_dialoguer_demo() {
 #[cfg(feature = "ratatui-backend")]
 fn run_ratatui_demo() {
     println!("\n--- Ratatui Backend Demo ---");
-    let backend = derive_wizard::RatatuiBackend::new()
-        .with_title("User Profile");
+    let backend = derive_wizard::RatatuiBackend::new().with_title("User Profile");
 
     let profile = UserProfile::wizard_builder()
         .with_backend(backend)

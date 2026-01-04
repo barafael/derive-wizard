@@ -144,7 +144,7 @@ impl DialoguerBackend {
                     let choice_refs: Vec<&str> = choices.iter().map(|s| s.as_str()).collect();
 
                     let selection = dialoguer::Select::new()
-                        .with_prompt(question.prompt())
+                        .with_prompt(Self::strip_prompt_colon(question.prompt()))
                         .items(&choice_refs)
                         .default(0)
                         .interact()
@@ -207,7 +207,7 @@ impl DialoguerBackend {
                 let choice_refs: Vec<&str> = choices.iter().map(|s| s.as_str()).collect();
 
                 let selection = dialoguer::Select::new()
-                    .with_prompt(question.prompt())
+                    .with_prompt(Self::strip_prompt_colon(question.prompt()))
                     .items(&choice_refs)
                     .default(*default_idx)
                     .interact()

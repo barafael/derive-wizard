@@ -731,18 +731,25 @@ fn generate_interview_code(interview: &Interview, data: &Data) -> proc_macro2::T
 
                     // Check if this is a Sequence (nested Wizard marker)
                     if matches!(question.kind(), QuestionKind::Sequence(seq) if seq.is_empty()) {
+                        let field_prompt = question.prompt();
                         // Generate code to call FieldType::interview() and prefix the nested questions
                         quote! {
                             {
                                 let mut nested_interview = <#field_ty as derive_wizard::Wizard>::interview();
-                                // Prefix all nested question names
+                                // Prefix all nested question names and update prompts
                                 for question in &mut nested_interview.sections {
                                     let old_name = question.name().to_string();
                                     let new_name = format!("{}.{}", #field_name, old_name);
+                                    // For enum alternatives (Sequence of Alternatives), use the field's prompt
+                                    let new_prompt = if question.kind().is_enum_alternatives() {
+                                        #field_prompt.to_string()
+                                    } else {
+                                        question.prompt().to_string()
+                                    };
                                     *question = derive_wizard::interview::Question::new(
                                         Some(new_name.clone()),
                                         new_name,
-                                        question.prompt().to_string(),
+                                        new_prompt,
                                         question.kind().clone(),
                                     );
                                 }
