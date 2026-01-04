@@ -409,14 +409,15 @@ impl EguiWizardApp {
                     text_edit = text_edit.hint_text(default);
                 }
 
-                // Add red border if there's a validation error
-                if has_error {
-                    ui.visuals_mut().widgets.inactive.bg_stroke.color = egui::Color32::RED;
-                    ui.visuals_mut().widgets.hovered.bg_stroke.color = egui::Color32::RED;
-                    ui.visuals_mut().widgets.active.bg_stroke.color = egui::Color32::RED;
-                }
-
-                ui.add(text_edit);
+                // Always use scope to keep widget ID consistent (avoids focus jumping)
+                ui.scope(|ui| {
+                    if has_error {
+                        ui.visuals_mut().widgets.inactive.bg_stroke.color = egui::Color32::RED;
+                        ui.visuals_mut().widgets.hovered.bg_stroke.color = egui::Color32::RED;
+                        ui.visuals_mut().widgets.active.bg_stroke.color = egui::Color32::RED;
+                    }
+                    ui.add(text_edit);
+                });
 
                 // Run validation immediately on any change if validator is configured
                 if input_q.validate.is_some() {
@@ -448,14 +449,15 @@ impl EguiWizardApp {
                     text_edit = text_edit.hint_text(default);
                 }
 
-                // Add red border if there's a validation error
-                if has_error {
-                    ui.visuals_mut().widgets.inactive.bg_stroke.color = egui::Color32::RED;
-                    ui.visuals_mut().widgets.hovered.bg_stroke.color = egui::Color32::RED;
-                    ui.visuals_mut().widgets.active.bg_stroke.color = egui::Color32::RED;
-                }
-
-                ui.add(text_edit);
+                // Always use scope to keep widget ID consistent (avoids focus jumping)
+                ui.scope(|ui| {
+                    if has_error {
+                        ui.visuals_mut().widgets.inactive.bg_stroke.color = egui::Color32::RED;
+                        ui.visuals_mut().widgets.hovered.bg_stroke.color = egui::Color32::RED;
+                        ui.visuals_mut().widgets.active.bg_stroke.color = egui::Color32::RED;
+                    }
+                    ui.add(text_edit);
+                });
 
                 // Run validation immediately on any change if validator is configured
                 if multiline_q.validate.is_some() {
@@ -481,15 +483,17 @@ impl EguiWizardApp {
                 let has_error = self.state.validation_errors.contains_key(id);
 
                 let buffer = self.state.get_or_init_buffer(id);
+                let text_edit = egui::TextEdit::singleline(buffer).password(true);
 
-                // Add red border if there's a validation error
-                if has_error {
-                    ui.visuals_mut().widgets.inactive.bg_stroke.color = egui::Color32::RED;
-                    ui.visuals_mut().widgets.hovered.bg_stroke.color = egui::Color32::RED;
-                    ui.visuals_mut().widgets.active.bg_stroke.color = egui::Color32::RED;
-                }
-
-                ui.add(egui::TextEdit::singleline(buffer).password(true));
+                // Always use scope to keep widget ID consistent (avoids focus jumping)
+                ui.scope(|ui| {
+                    if has_error {
+                        ui.visuals_mut().widgets.inactive.bg_stroke.color = egui::Color32::RED;
+                        ui.visuals_mut().widgets.hovered.bg_stroke.color = egui::Color32::RED;
+                        ui.visuals_mut().widgets.active.bg_stroke.color = egui::Color32::RED;
+                    }
+                    ui.add(text_edit);
+                });
 
                 // Run validation immediately on any change if validator is configured
                 if masked_q.validate.is_some() {
@@ -528,12 +532,10 @@ impl EguiWizardApp {
                 }
 
                 let response = ui.add(drag);
-                // Only run real-time validation on actual user interaction, not on auto-clamp
                 if response.changed() {
                     *self.state.get_or_init_buffer(id) = value.to_string();
-                }
-                if response.drag_stopped() || response.lost_focus() {
-                    // Run validation when user finishes interacting
+
+                    // Run validation on every change
                     if int_q.validate.is_some() {
                         let current_answers = self.build_current_answers();
                         match (self.validator)(id, &value.to_string(), &current_answers) {
@@ -565,12 +567,10 @@ impl EguiWizardApp {
                 }
 
                 let response = ui.add(drag);
-                // Only run real-time validation on actual user interaction, not on auto-clamp
                 if response.changed() {
                     *self.state.get_or_init_buffer(id) = value.to_string();
-                }
-                if response.drag_stopped() || response.lost_focus() {
-                    // Run validation when user finishes interacting
+
+                    // Run validation on every change
                     if float_q.validate.is_some() {
                         let current_answers = self.build_current_answers();
                         match (self.validator)(id, &value.to_string(), &current_answers) {
