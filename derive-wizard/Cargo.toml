@@ -94,6 +94,11 @@ path = "examples/backends/dialoguer_validation.rs"
 required-features = ["dialoguer-backend"]
 
 [[example]]
+name = "dialoguer_multi_select"
+path = "examples/backends/dialoguer_multi_select.rs"
+required-features = ["dialoguer-backend"]
+
+[[example]]
 name = "requestty_multi_select"
 path = "examples/backends/requestty_multi_select.rs"
 required-features = ["requestty-backend"]
