@@ -23,12 +23,13 @@ pub enum Availability {
     Weekends,
 }
 
-#[derive(Debug, Clone, Copy, Default, Wizard)]
+#[derive(Debug, Clone, Default, Wizard)]
 pub enum Role {
     #[default]
     Developer,
     Designer,
     Manager,
+    Other(#[prompt("Description:")] String),
 }
 
 #[derive(Debug, Wizard)]
