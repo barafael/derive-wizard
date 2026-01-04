@@ -74,6 +74,11 @@ path = "examples/backends/ratatui_job_application.rs"
 required-features = ["ratatui-backend"]
 
 [[example]]
+name = "ratatui_multi_select"
+path = "examples/backends/ratatui_multi_select.rs"
+required-features = ["ratatui-backend"]
+
+[[example]]
 name = "ratatui_server_config"
 path = "examples/backends/ratatui_server_config.rs"
 required-features = ["ratatui-backend"]

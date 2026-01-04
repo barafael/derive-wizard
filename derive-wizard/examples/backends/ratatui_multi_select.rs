@@ -2,13 +2,10 @@
 //!
 //! Run with: cargo run --example ratatui_multi_select --features ratatui-backend
 
-use derive_wizard::{
-    Wizard,
-    backend::{InterviewBackend, RatatuiBackend, RatatuiTheme},
-};
+use derive_wizard::{InterviewBackend, RatatuiBackend, RatatuiColor, RatatuiTheme, Wizard};
 
 /// Toppings for a custom pizza order
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Wizard)]
 pub enum Topping {
     Pepperoni,
     Mushrooms,
@@ -40,7 +37,7 @@ impl std::fmt::Display for Topping {
 }
 
 /// Dipping sauces
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Wizard)]
 pub enum Sauce {
     Marinara,
     Ranch,
@@ -63,30 +60,24 @@ impl std::fmt::Display for Sauce {
 
 /// Pizza order with multi-select for toppings
 #[derive(Debug, Wizard)]
-#[wizard(title = "Pizza Order Form", prelude = "Build your perfect pizza!")]
 pub struct PizzaOrder {
-    /// Customer name
-    #[wizard(prompt = "Name for the order:")]
+    #[prompt("Name for the order:")]
     customer_name: String,
 
-    /// Pizza size
-    #[wizard(prompt = "What size pizza would you like?")]
+    #[prompt("What size pizza would you like?")]
     size: PizzaSize,
 
-    /// Selected toppings (multi-select)
-    #[wizard(prompt = "Choose your toppings:")]
+    #[prompt("Choose your toppings:")]
     toppings: Vec<Topping>,
 
-    /// Dipping sauces (multi-select)
-    #[wizard(prompt = "Any dipping sauces?")]
+    #[prompt("Any dipping sauces?")]
     sauces: Vec<Sauce>,
 
-    /// Special instructions
-    #[wizard(prompt = "Any special instructions?")]
+    #[prompt("Any special instructions?")]
     instructions: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Wizard)]
 pub enum PizzaSize {
     Personal,
     #[default]
@@ -109,18 +100,21 @@ impl std::fmt::Display for PizzaSize {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Use a warm pizza-themed color scheme
     let pizza_theme = RatatuiTheme {
-        primary: ratatui::style::Color::Rgb(255, 165, 0), // Orange
-        secondary: ratatui::style::Color::Rgb(255, 99, 71), // Tomato red
-        highlight: ratatui::style::Color::Rgb(255, 215, 0), // Gold
-        text: ratatui::style::Color::White,
-        border: ratatui::style::Color::Rgb(139, 69, 19), // Saddle brown
-        error: ratatui::style::Color::Red,
-        success: ratatui::style::Color::Rgb(50, 205, 50), // Lime green
+        primary: RatatuiColor::Rgb(255, 165, 0),   // Orange
+        secondary: RatatuiColor::Rgb(255, 99, 71), // Tomato red
+        highlight: RatatuiColor::Rgb(255, 215, 0), // Gold
+        text: RatatuiColor::White,
+        background: RatatuiColor::Reset,
+        border: RatatuiColor::Rgb(139, 69, 19), // Saddle brown
+        error: RatatuiColor::Red,
+        success: RatatuiColor::Rgb(50, 205, 50), // Lime green
     };
 
-    let backend = RatatuiBackend::new().with_theme(pizza_theme);
+    let backend = RatatuiBackend::new()
+        .with_theme(pizza_theme)
+        .with_title("Pizza Order Form");
 
-    let interview = PizzaOrder::build_interview();
+    let interview = PizzaOrder::interview();
     let answers = backend.execute(&interview)?;
 
     let order = PizzaOrder::from_answers(&answers)?;
