@@ -1,414 +1,271 @@
 # derive-wizard
 
-A Rust procedural macro that automatically generates interactive CLI wizards from struct definitions using [requestty](https://crates.io/crates/requestty).
+Generate interactive CLI wizards or UIs by annotating Rust types. It's like magic!
 
-## Showcase
-
-```rust
-use derive_wizard::Wizard;
-
-#[derive(Debug, Wizard)]
-struct ShowCase {
-    // String types - defaults to 'input'
-    #[prompt("Enter your name:")]
-    name: String,
-
-    // Override with password question type
-    #[prompt("Enter your password:")]
-    #[mask]
-    password: String,
-
-    // Long text with multiline editor
-    #[prompt("Enter a bio:")]
-    #[multiline]
-    bio: String,
-
-    // Bool type - defaults to 'confirm'
-    #[prompt("Do you agree to the terms?")]
-    agree: bool,
-
-    // Integer types - defaults to 'int'
-    #[prompt("Enter your age (i32):")]
-    age: i32,
-
-    // Float types - defaults to 'float'
-    #[prompt("Enter your height in meters (f64):")]
-    height: f64,
-
-    #[prompt("Enter a decimal number (f32):")]
-    decimal: f32,
-    
-    #[prompt("Enter your gender")]
-    gender: Gender,
-}
-
-#[derive(Debug, Wizard)]
-enum Gender {
-    Male,
-    Female,
-    Other(
-        #[prompt("Please specify:")]
-        String
-    ),
-}
-
-```
-
-### Password Fields with `#[mask]`
-
-For password inputs, use the convenient `#[mask]` attribute to hide user input:
+## Quick Start
 
 ```rust
 use derive_wizard::Wizard;
 
 #[derive(Debug, Wizard)]
-struct LoginForm {
-    #[prompt("Enter your username:")]
-    username: String,
+struct ServerConfig {
+    #[prompt("Server host:")]
+    host: String,
 
-    #[prompt("Enter your password:")]
-    #[mask]
-    password: String,  // Input will be hidden
-}
-```
-
-### Long Text with `#[multiline]`
-
-For longer text input, use the `#[multiline]` attribute to open the user's preferred text editor:
-
-```rust
-use derive_wizard::Wizard;
-
-#[derive(Debug, Wizard)]
-struct Article {
-    #[prompt("Enter the title:")]
-    title: String,
-
-    #[prompt("Write the article content:")]
-    #[multiline]
-    content: String,  // Opens text editor (vim, nano, etc.)
-}
-```
-
-## Attributes
-
-- `#[prompt("message")]` - **Required**. The message to display to the user
-- `#[mask]` - **Optional**. For String fields: enables password input (hidden text)
-- `#[multiline]` - **Optional**. For String fields: opens text editor for longer input
-- `#[validate("function_name")]` - **Optional**. Validates input with a custom function
-
-**Note**: `#[mask]` and `#[multiline]` are mutually exclusive and cannot be used on the same field.
-
-## Using the Builder API
-
-The builder API provides a fluent interface for configuring and executing wizards:
-
-```rust,no_run
-use derive_wizard::Wizard;
-
-#[derive(Debug, Clone, Wizard)]
-struct Config {
-    #[prompt("Enter the server address:")]
-    server: String,
-
-    #[prompt("Enter the port:")]
+    #[prompt("Server port:")]
     port: u16,
 
-    #[prompt("Enable SSL?")]
+    #[prompt("Enable SSL:")]
     use_ssl: bool,
 }
 
-// Simple usage with default backend (requestty)
-let config = Config::wizard_builder().build().unwrap();
-println!("Config: {config:#?}");
-
-// Edit configuration with suggestions pre-filled
-let updated_config = Config::wizard_builder()
-    .with_suggestions(config)
-    .build()
-    .unwrap();
-println!("Updated config: {updated_config:#?}");
+fn main() {
+    let config = ServerConfig::wizard_builder().build().unwrap();
+    println!("{config:#?}");
+}
 ```
 
-Additional examples:
+That's it. The program will prompt you for each field interactively.
 
-```rust,no_run
-use derive_wizard::Wizard;
+## Features
 
-# #[derive(Debug, Clone, Wizard)]
-# struct Config {
-#     #[prompt("Enter the server address:")]
-#     server: String,
-#     #[prompt("Enter the port:")]
-#     port: u16,
-#     #[prompt("Enable SSL?")]
-#     use_ssl: bool,
-# }
-// With custom backend (e.g., requestty)
-let backend = derive_wizard::RequesttyBackend::new();
-let config = Config::wizard_builder()
-    .with_backend(backend)
-    .build()
-    .unwrap();
-println!("Config: {config:#?}");
+- **Multiple backends** — requestty (default), dialoguer, ratatui, egui, typst
+- **Password input** — `#[mask]` hides user input
+- **Multiline text** — `#[multiline]` opens the user's editor or displays a text area, depending on the backend
+- **Validation** — `#[validate("fn_name")]` with custom validator functions
+- **Numeric bounds** — `#[min(n)]` and `#[max(n)]` for integers and floats
+- **Enum selection** — Variants become selectable options
+- **Multi-select** — `Vec<Enum>` allows multiple selections
+- **Nested types** — Automatically flattened into the wizard interview flow
+- **Suggestions** — Pre-fill fields with defaults users can edit
+- **Assumptions** — Skip questions entirely with fixed values
 
-// Combine suggestions with custom backend
-let backend = derive_wizard::RequesttyBackend::new();
-let updated_config = Config::wizard_builder()
-    .with_suggestions(config)
-    .with_backend(backend)
-    .build()
-    .unwrap();
-println!("Updated config: {updated_config:#?}");
+## Backends
+
+derive-wizard supports multiple (T)UI backends.
+
+Enable backends via Cargo features:
+
+```toml
+[dependencies]
+derive-wizard = { version = "0.5", features = ["dialoguer-backend"] }
 ```
 
-When `with_suggestions()` is used:
 
-- For **String** fields: the current value is shown as a hint/placeholder
-- For **numeric** fields (integers and floats): the current value is shown as suggested
-- For **bool** fields: the current value is pre-selected
-- For **password** (`#[mask]`) and **multiline** (`#[multiline]`) fields: suggestions are shown as hints (backend-dependent)
+### requestty (default)
 
-### Suggesting Individual Fields
+Cross-platform terminal prompts with rich formatting.
 
-Instead of providing a complete struct with `with_suggestions()`, you can suggest values for specific fields using `suggest_field()`:
-
-```rust,no_run
-use derive_wizard::Wizard;
-
-# #[derive(Debug, Clone, Wizard)]
-# struct Config {
-#     #[prompt("Enter the server address:")]
-#     server: String,
-#     #[prompt("Enter the port:")]
-#     port: u16,
-#     #[prompt("Enable SSL?")]
-#     use_ssl: bool,
-# }
-// Suggest specific fields, ask about all of them
-let config = Config::wizard_builder()
-    .suggest_field("server", "localhost".to_string())
-    .suggest_field("port", 8080)
-    .suggest_field("use_ssl", false)
-    .build();  // All questions asked with pre-filled defaults
+```rust
+let config = ServerConfig::wizard_builder().build()?;
 ```
 
-This is useful when you want to provide defaults for specific fields without needing to construct an entire struct.
+### dialoguer
 
-### Using Assumptions
+Simple, lightweight terminal dialogs.
 
-Assumptions are different from suggestions - they completely skip the questions and use the provided values directly. Use `assume_field()` to set specific fields while still asking about others:
+```rust
+use derive_wizard::DialoguerBackend;
 
-```rust,no_run
-use derive_wizard::Wizard;
-
-# #[derive(Debug, Clone, Wizard)]
-# struct Config {
-#     #[prompt("Enter the server address:")]
-#     server: String,
-#     #[prompt("Enter the port:")]
-#     port: u16,
-#     #[prompt("Enable SSL?")]
-#     use_ssl: bool,
-# }
-// Assume specific fields, ask about the rest
-let config = Config::wizard_builder()
-    .assume_field("use_ssl", true)      // Always use SSL in production
-    .assume_field("port", 443)           // Standard HTTPS port
-    .build();  // Will only ask about 'server'
+let config = ServerConfig::wizard_builder()
+    .with_backend(DialoguerBackend::new())
+    .build()?;
 ```
 
-**Key differences:**
+### ratatui
 
-- **Suggestions** (`with_suggestions()` or `suggest_field()`): Questions are asked, but with pre-filled default values
-- **Assumptions** (`assume_field()`): Questions are skipped entirely, values are used as-is
+Full TUI with keyboard navigation, progress bar, and styling.
 
-You can also combine both approaches:
+```rust
+use derive_wizard::RatatuiBackend;
 
-```rust,no_run
-use derive_wizard::Wizard;
-
-# #[derive(Debug, Clone, Wizard)]
-# struct Config {
-#     #[prompt("Enter the server address:")]
-#     server: String,
-#     #[prompt("Enter the port:")]
-#     port: u16,
-#     #[prompt("Enable SSL?")]
-#     use_ssl: bool,
-# }
-let config = Config::wizard_builder()
-    .suggest_field("server", "localhost".to_string())  // Suggest (will ask)
-    .assume_field("use_ssl", true)                      // Assume (will skip)
-    .assume_field("port", 443)                          // Assume (will skip)
-    .build();  // Only asks about 'server' with "localhost" as default
+let config = ServerConfig::wizard_builder()
+    .with_backend(RatatuiBackend::new())
+    .build()?;
 ```
 
-Assumptions are useful for:
+### egui
 
-- Enforcing security policies (e.g., always enable SSL in production)
-- Providing sensible defaults that users shouldn't change
-- Batch processing with some fixed and some variable fields
+Desktop GUI using immediate-mode rendering.
 
-### Working with Nested Fields
+```rust
+use derive_wizard::EguiBackend;
 
-When your struct contains other `Wizard`-derived types, the fields are automatically namespaced with dot notation to avoid conflicts:
+let config = ServerConfig::wizard_builder()
+    .with_backend(EguiBackend::new("Window Title"))
+    .build()?;
+```
 
-```rust,no_run
-use derive_wizard::Wizard;
+### typst
 
-#[derive(Debug, Clone, Wizard)]
+Generate PDF forms from your struct definitions. Not technically a backend, but hey. It's pretty fun.
+
+```rust
+let form_markup = ServerConfig::to_typst_form(Some("Configuration Form"));
+std::fs::write("form.typ", form_markup)?;
+```
+
+## Proc-Macro Attributes
+
+| Attribute            | Applies To  | Description                                                    |
+|----------------------|-------------|----------------------------------------------------------------|
+| `#[prompt("...")]`   | Fields      | The message shown to the user (required for non-builtin types) |
+| `#[mask]`            | `String`    | Hide input for passwords                                       |
+| `#[multiline]`       | `String`    | Open text editor for long input                                |
+| `#[validate("fn")]`  | Any field   | Custom validation function                                     |
+| `#[min(n)]`          | Numeric     | Minimum allowed value                                          |
+| `#[max(n)]`          | Numeric     | Maximum allowed value                                          |
+| `#[prelude("...")]`  | Struct/Enum | Message shown before the wizard starts                         |
+| `#[epilogue("...")]` | Struct/Enum | Message shown after completion                                 |
+
+## Supported Types
+
+| Type                                       | Question Style                 |
+|--------------------------------------------|--------------------------------|
+| `String`                                   | Text input                     |
+| `bool`                                     | Yes/No confirmation            |
+| `i8`–`i128`, `u8`–`u128`, `isize`, `usize` | Integer input                  |
+| `f32`, `f64`                               | Float input                    |
+| `PathBuf`                                  | Text input (path)              |
+| Enum                                       | Single selection from variants |
+| `Vec<Enum>`                                | Multi-select from variants     |
+| Nested struct                              | Questions inlined into flow    |
+
+## Examples
+
+### Password Input
+
+```rust
+#[derive(Debug, Wizard)]
+struct LoginForm {
+    #[prompt("Username:")]
+    username: String,
+
+    #[prompt("Password:")]
+    #[mask]
+    password: String,
+}
+```
+
+### Multiline Text
+
+```rust
+#[derive(Debug, Wizard)]
+struct Article {
+    #[prompt("Title:")]
+    title: String,
+
+    #[prompt("Content:")]
+    #[multiline]
+    body: String,
+}
+```
+
+### Validation
+
+```rust
+use derive_wizard::{Wizard, Answers};
+
+#[derive(Debug, Wizard)]
+struct Account {
+    #[prompt("Email address:")]
+    #[validate("validate_email")]
+    email: String,
+}
+
+fn validate_email(input: &str, _answers: &Answers) -> Result<(), String> {
+    if input.contains('@') && input.contains('.') {
+        Ok(())
+    } else {
+        Err("Invalid email format".into())
+    }
+}
+```
+
+### Enum Selection
+
+```rust
+#[derive(Debug, Wizard)]
+enum Transport {
+    Car,
+    Bike(#[prompt("Bike manufacturer:")] String),
+    Walk,
+}
+
+#[derive(Debug, Wizard)]
+struct Trip {
+    #[prompt("Destination:")]
+    destination: String,
+
+    #[prompt("How will you travel?")]
+    transport: Transport,
+}
+```
+
+### Nested Structs
+
+```rust
+#[derive(Debug, Wizard)]
 struct Address {
     #[prompt("Street:")]
     street: String,
-    
+
     #[prompt("City:")]
     city: String,
 }
 
-#[derive(Debug, Clone, Wizard)]
+#[derive(Debug, Wizard)]
 struct UserProfile {
     #[prompt("Name:")]
     name: String,
-    
+
     #[prompt("Home address:")]
-    address: Address,  // Nested Wizard type
+    address: Address,
 }
-
-// The nested Address fields are automatically prefixed:
-// - "address.street"
-// - "address.city"
 ```
 
-**Namespace Prefixing**: Each nested field is prefixed with its parent field name and a dot. This allows you to:
+## Builder API
 
-- Have duplicate field names in different nested structures
-- Target specific nested fields with suggestions and assumptions
-- Maintain a flat question list while preserving logical structure
+### Suggestions (Editable Defaults)
 
-#### Using the `field!` Macro for Nested Fields
+Pre-fill fields with values users can modify:
 
-To reference nested fields in `suggest_field()` or `assume_field()`, use the `field!` macro with dot notation:
+```rust
+// From an existing instance
+let updated = ServerConfig::wizard_builder()
+    .with_suggestions(existing_config)
+    .build()?;
 
-```rust,no_run
-use derive_wizard::{Wizard, field};
+// For specific fields
+let config = ServerConfig::wizard_builder()
+    .suggest_field("host", "localhost".to_string())
+    .suggest_field("port", 8080)
+    .build()?;
+```
 
-# #[derive(Debug, Clone, Wizard)]
-# struct Address {
-#     #[prompt("Street:")]
-#     street: String,
-#     #[prompt("City:")]
-#     city: String,
-# }
-# 
-# #[derive(Debug, Clone, Wizard)]
-# struct UserProfile {
-#     #[prompt("Name:")]
-#     name: String,
-#     #[prompt("Address:")]
-#     address: Address,
-# }
+### Assumptions (Skip Questions)
+
+Fix values without asking:
+
+```rust
+let config = ServerConfig::wizard_builder()
+    .assume_field("use_ssl", true)
+    .assume_field("port", 443)
+    .build()?;  // Only asks about "host"
+```
+
+### References to Nested Fields
+
+Use the `field!` macro for type-safe nested field paths:
+
+```rust
+use derive_wizard::field;
+
 let profile = UserProfile::wizard_builder()
-    .suggest_field(field!(name), "John Doe".to_string())
-    .suggest_field(
-        field!(UserProfile::address::street),
-        "123 Main St".to_string()
-    )
-    .assume_field(
-        field!(UserProfile::address::city),
-        "Springfield".to_string()
-    )
-    .build();
+    .suggest_field(field!(name), "John".to_string())
+    .assume_field(field!(UserProfile::address::city), "Boston".to_string())
+    .build()?;
 ```
-
-The `field!` macro supports:
-
-- Simple fields: `field!(name)` → `"name"`
-- One level nesting: `field!(Type::field)` → `"field"`
-- Two level nesting: `field!(Type::nested::field)` → `"nested.field"`
-
-#### Handling Duplicate Field Names
-
-Namespace prefixing automatically handles duplicate field names across different nested structures:
-
-```rust,no_run
-use derive_wizard::{Wizard, field};
-
-#[derive(Debug, Clone, Wizard)]
-struct Department {
-    #[prompt("Department name:")]
-    name: String,
-    
-    #[prompt("Budget:")]
-    budget: i32,
-}
-
-#[derive(Debug, Clone, Wizard)]
-struct Organization {
-    #[prompt("Organization name:")]
-    name: String,  // Same field name as Department
-    
-    #[prompt("Primary department:")]
-    primary: Department,
-    #[prompt("Secondary department:")]
-    secondary: Department,
-}
-
-// Each 'name' field gets a unique path:
-// - "name" (Organization.name)
-// - "primary.name" (primary Department.name)
-// - "secondary.name" (secondary Department.name)
-
-let org = Organization::wizard_builder()
-    .suggest_field(field!(name), "Acme Corp".to_string())
-    .assume_field(
-        field!(Organization::primary::name),
-        "Engineering".to_string()
-    )
-    .assume_field(
-        field!(Organization::secondary::name),
-        "Sales".to_string()
-    )
-    .build();
-```
-
-This namespace approach ensures that:
-
-- No field names collide, even with identical names in different nested structures
-- You can precisely target any field using the `field!` macro
-- The interview remains a flat list of questions (no complex nesting UI)
-
-## Supported Question Types
-
-The `#[derive(Wizard)]` macro supports all 11 requestty question types:
-
-| Rust Type                          | Default Question Type | Override Options                                    | Returns              |
-|------------------------------------|-----------------------|-----------------------------------------------------|----------------------|
-| `String`                           | `input`               | `#[mask]` for password, `#[multiline]` for text editor | `String`             |
-| `bool`                             | `confirm`             | -                                                   | `bool`               |
-| `i8`, `i16`, `i32`, `i64`, `isize` | `int`                 | -                                                   | `i64` (cast to type) |
-| `u8`, `u16`, `u32`, `u64`, `usize` | `int`                 | -                                                   | `i64` (cast to type) |
-| `f32`, `f64`                       | `float`               | -                                                   | `f64` (cast to type) |
-| `ListItem`                         | `select`              | -                                                   | `ListItem`           |
-| `ExpandItem`                       | `expand`              | -                                                   | `ExpandItem`         |
-| `Vec<ListItem>`                    | `multi_select`        | -                                                   | `Vec<ListItem>`      |
-
-## Question Type Details
-
-1. **input** - Basic text input prompt (default for String)
-2. **password** - Hidden text input (use `#[mask]` on String fields)
-3. **editor** - Opens text editor for longer input (use `#[multiline]` on String fields)
-4. **confirm** - Yes/No confirmation prompt (default for bool)
-5. **int** - Integer input (default for integer types)
-6. **float** - Floating point input (default for float types)
-7. **select** - Single selection from a list (default for `ListItem`)
-8. **expand** - Single selection with keyboard shortcuts (default for `ExpandItem`)
-9. **`multi_select`** - Multiple selection from a list (default for `Vec<ListItem>`)
-
-Note: The following question types are available in requestty but not currently exposed through attributes:
-
-- **`raw_select`** - Single selection with index-based input
-- **`order_select`** - Reorder items in a list
 
 ## License
 
