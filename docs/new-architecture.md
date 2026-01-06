@@ -107,7 +107,7 @@ fn main() {
     let survey_result = MySurvey::builder()
         .run(RequesttyWizard::new())
         .unwrap();
-    
+
     println!("{:#?}", survey_result);
 }
 ```
@@ -227,7 +227,7 @@ Backends decide how to present a `SurveyDefinition`.
 ```rust
 pub trait SurveyBackend {
     type Error: Into<anyhow::Error>;
-    
+
     fn collect(
         &self,
         definition: &SurveyDefinition,
@@ -254,7 +254,7 @@ pub struct RequesttyWizard;
 
 impl SurveyBackend for RequesttyWizard {
     type Error = RequesttyError;
-    
+
     fn collect(
         &self,
         definition: &SurveyDefinition,
@@ -278,7 +278,7 @@ pub struct EguiForm { /* ... */ }
 
 impl SurveyBackend for EguiForm {
     type Error = EguiFormError;
-    
+
     fn collect(
         &self,
         definition: &SurveyDefinition,
@@ -379,37 +379,18 @@ derive-typst-document/
 ```
 
 
-Other Backend Examples (independent, user chooses):
+Other Backend and Output Crates (following the same pattern):
 
-```
-derive-dialoguer-wizard/
-├── Cargo.toml → depends on: derive-survey, dialoguer
-└── lib.rs → impl SurveyBackend for DialoguerWizard
+**Wizard-style backends:**
+- `derive-dialoguer-wizard` → depends on derive-survey, dialoguer
+- `derive-ratatui-wizard` → depends on derive-survey, ratatui
 
-derive-ratatui-wizard/
-├── Cargo.toml → depends on: derive-survey, ratatui
-└── lib.rs → impl SurveyBackend for RatatuiWizard
+**Form-style backends:**
+- `derive-ratatui-form` → depends on derive-survey, ratatui
+- `derive-egui-form` → depends on derive-survey, egui
 
-derive-ratatui-form/
-├── Cargo.toml → depends on: derive-survey, ratatui
-└── lib.rs → impl SurveyBackend for RatatuiForm
-
-derive-egui-form/
-├── Cargo.toml → depends on: derive-survey, egui
-└── lib.rs → impl SurveyBackend for EguiForm
-```
-
-Other Output Examples (optional):
-
-```
-derive-typst-document/
-├── Cargo.toml → depends on: derive-survey
-└── lib.rs → pub fn to_typst<T: Survey>(...) -> String
-
-derive-html-document/
-├── Cargo.toml → depends on: derive-survey
-└── lib.rs → pub fn to_html<T: Survey>(...) -> String
-```
+**Output crates:**
+- `derive-html-document` → depends on derive-survey
 
 Key Dependency Rules:
 ─────────────────────
@@ -459,7 +440,7 @@ pub struct SurveyDefinition {
 
     /// All questions in the survey (may contain nested AllOf/OneOf/AnyOf)
     pub questions: Vec<Question>,
-    
+
     /// Optional message shown after the survey completes
     pub epilogue: Option<String>,
 }
@@ -480,16 +461,16 @@ impl ResponsePath {
     pub fn root(name: impl Into<String>) -> Self {
         Self { segments: vec![name.into()] }
     }
-    
+
     pub fn child(mut self, name: impl Into<String>) -> Self {
         self.segments.push(name.into());
         self
     }
-    
+
     pub fn segments(&self) -> &[String] {
         &self.segments
     }
-    
+
     /// Returns a new path with the given prefix removed, if it matches
     pub fn strip_prefix(&self, prefix: &str) -> Option<Self> {
         if self.segments.first().map(|s| s.as_str()) == Some(prefix) {
@@ -498,7 +479,7 @@ impl ResponsePath {
             None
         }
     }
-    
+
     /// Converts the path to a dot-separated string for display/debugging
     pub fn as_str(&self) -> String {
         self.segments.join(".")
@@ -527,7 +508,7 @@ pub enum ResponseValue {
 impl Responses {
     pub fn get(&self, path: &ResponsePath) -> Option<&ResponseValue>;
     pub fn insert(&mut self, path: ResponsePath, value: ResponseValue);
-    
+
     /// Filters responses to only those with the given path prefix, removing the prefix from keys
     pub fn filter_prefix(&self, prefix: &ResponsePath) -> Self {
         let mut filtered = Responses { values: HashMap::new() };
@@ -541,7 +522,7 @@ impl Responses {
         }
         filtered
     }
-    
+
     // Convenience methods
     pub fn get_string(&self, path: &ResponsePath) -> Result<&str, Error>;
     pub fn get_int(&self, path: &ResponsePath) -> Result<i64, Error>;
@@ -570,12 +551,12 @@ impl Question {
     pub fn ask(&self) -> &str;
     pub fn kind(&self) -> &QuestionKind;
     pub fn default(&self) -> &DefaultValue;
-    
+
     /// Set a suggested default value (user can modify)
     pub fn set_suggestion(&mut self, value: impl Into<ResponseValue>) {
         self.default = DefaultValue::Suggested(value.into());
     }
-    
+
     /// Set an assumed value (question is skipped entirely)
     pub fn set_assumption(&mut self, value: impl Into<ResponseValue>) {
         self.default = DefaultValue::Assumed(value.into());
@@ -599,31 +580,31 @@ The `QuestionKind` enum represents the different types of questions:
 pub enum QuestionKind {
     /// No data to collect (unit enum variants)
     None,
-    
+
     /// Single-line text input
     Input(InputQuestion),
-    
+
     /// Multi-line text input (opens editor or textarea)
     Multiline(MultilineQuestion),
-    
+
     /// Masked input for passwords
     Masked(MaskedQuestion),
-    
+
     /// Integer input with optional min/max bounds
     Int(IntQuestion),
-    
+
     /// Floating-point input with optional min/max bounds
     Float(FloatQuestion),
-    
+
     /// Yes/no confirmation
     Confirm(ConfirmQuestion),
-    
+
     /// Select any number of options from a list (Vec<Enum>)
     AnyOf(AnyOfQuestion),
-    
+
     /// A group of questions — answer all (nested structs, struct variants)
     AllOf(Vec<Question>),
-    
+
     /// Choose one variant — pick one, then answer its questions (enums)
     OneOf(Vec<Variant>),
 }
@@ -872,20 +853,20 @@ fn from_responses(responses: &Responses) -> Self {
 pub trait Survey: Sized {
     /// Returns the survey structure (questions, prompts, validation metadata)
     fn survey() -> SurveyDefinition;
-    
+
     /// Reconstructs an instance from collected responses.
     /// This is infallible — the macro generates both survey() and from_responses(),
     /// guaranteeing they are consistent. If all questions are answered, reconstruction succeeds.
     fn from_responses(responses: &Responses) -> Self;
-    
+
     /// Validates a single field's value
     /// Called by backends during input collection
     fn validate_field(path: &ResponsePath, value: &str, responses: &Responses) -> Result<(), String>;
-    
+
     /// Validates the entire survey (composite validators, inter-field conditions)
     /// Returns a map of path -> error message for all validation failures
     fn validate_all(responses: &Responses) -> HashMap<ResponsePath, String>;
-    
+
     /// Returns a builder for running the survey
     fn builder() -> SurveyBuilder<Self> {
         SurveyBuilder::new()
@@ -898,9 +879,9 @@ pub trait Survey: Sized {
 ```rust
 pub trait SurveyBackend {
     type Error: Into<anyhow::Error>;
-    
+
     /// Collect responses for a survey.
-    /// 
+    ///
     /// Returns Ok(responses) on success, Err on cancellation or backend failure.
     /// Validation is handled internally — this only returns when all fields are valid.
     fn collect(
@@ -932,7 +913,7 @@ struct Registration {
     #[ask("Email:")]
     #[validate("validate_email")]
     email: String,
-    
+
     #[ask("Age:")]
     #[min(18)]
     age: u32,
@@ -952,7 +933,7 @@ struct AccountSetup {
     #[ask("Password:")]
     #[mask]
     password: String,
-    
+
     #[ask("Confirm password:")]
     #[mask]
     password_confirm: String,
@@ -961,10 +942,10 @@ struct AccountSetup {
 /// Validates the partially-filled survey, returns errors keyed by path
 fn validate_passwords_match(responses: &Responses) -> HashMap<ResponsePath, String> {
     let mut errors = HashMap::new();
-    
+
     let pw = responses.get_string(&ResponsePath::root("password"));
     let confirm = responses.get_string(&ResponsePath::root("password_confirm"));
-    
+
     if let (Ok(pw), Ok(confirm)) = (pw, confirm) {
         if pw != confirm {
             errors.insert(
@@ -973,7 +954,7 @@ fn validate_passwords_match(responses: &Responses) -> HashMap<ResponsePath, Stri
             );
         }
     }
-    
+
     errors
 }
 ```
@@ -1000,7 +981,7 @@ for question in survey.questions() {
             // Called on each keypress for live feedback
             T::validate_field(&question.path, partial, &responses)
         })?;
-        
+
         // Validate on submit
         match T::validate_field(&question.path, &value, &responses) {
             Ok(()) => {
@@ -1021,27 +1002,27 @@ for question in survey.questions() {
 ```rust
 loop {
     render_form(&survey, &responses, &errors);
-    
+
     match handle_input() {
         Keystroke(path, new_value) => {
             responses.insert(path.clone(), new_value.into());
-            
+
             // Validate this field live
             if let Err(msg) = T::validate_field(&path, &new_value, &responses) {
                 errors.insert(path, msg);
             } else {
                 errors.remove(&path);
             }
-            
+
             // Also run composite validators for inter-field conditions
             let composite_errors = T::validate_all(&responses);
             errors.extend(composite_errors);
         }
-        
+
         Submit => {
             // Final validation of everything
             errors.clear();
-            
+
             for question in survey.questions() {
                 if let Some(value) = responses.get(&question.path) {
                     if let Err(msg) = T::validate_field(&question.path, value.as_str(), &responses) {
@@ -1049,9 +1030,9 @@ loop {
                     }
                 }
             }
-            
+
             errors.extend(T::validate_all(&responses));
-            
+
             if errors.is_empty() {
                 break;  // Success
             }
@@ -1085,7 +1066,7 @@ fn test_config_survey() {
                 .with_response("port", 8080)
         )
         .unwrap();
-    
+
     assert_eq!(config.host, "localhost");
     assert_eq!(config.port, 8080);
 }
@@ -1161,25 +1142,25 @@ impl<T: Survey> SurveyBuilder<T> {
         self.suggestions = Some(instance.clone());
         self
     }
-    
+
     /// Suggest a default value for a field (user can modify)
     pub fn suggest(mut self, path: impl Into<ResponsePath>, value: impl Into<ResponseValue>) -> Self {
         self.suggested.insert(path.into(), value.into());
         self
     }
-    
+
     /// Suggest multiple default values
     pub fn suggest_all(mut self, suggestions: impl IntoIterator<Item = (ResponsePath, ResponseValue)>) -> Self {
         self.suggested.extend(suggestions);
         self
     }
-    
+
     /// Assume a value for a field, skipping its prompt
     pub fn assume(mut self, path: impl Into<ResponsePath>, value: impl Into<ResponseValue>) -> Self {
         self.assumptions.insert(path.into(), value.into());
         self
     }
-    
+
     /// Assume multiple values
     pub fn assume_all(mut self, assumptions: impl IntoIterator<Item = (ResponsePath, ResponseValue)>) -> Self {
         self.assumptions.extend(assumptions);
@@ -1195,20 +1176,20 @@ impl<T: Survey> SurveyBuilder<T> {
     pub fn run<B: SurveyBackend>(self, backend: B) -> Result<T, SurveyError> {
         let mut definition = T::survey();
         let mut responses = Responses::new();
-        
+
         // Apply suggestions from instance if provided
         if let Some(instance) = &self.suggestions {
             // Macro-generated method walks the struct and sets question.default = Suggested(value)
             self.apply_suggestions_to_definition(&mut definition, instance);
         }
-        
+
         // Apply individual suggestions
         for question in &mut definition.questions {
             if let Some(value) = self.suggested.get(&question.path) {
                 question.set_suggestion(value.clone());
             }
         }
-        
+
         // Apply assumptions to questions and collect assumed responses
         for question in &mut definition.questions {
             if let Some(value) = self.assumptions.get(&question.path) {
@@ -1216,15 +1197,15 @@ impl<T: Survey> SurveyBuilder<T> {
                 responses.insert(question.path.clone(), value.clone());
             }
         }
-        
+
         // Filter out assumed questions (where default is Assumed)
         definition.questions.retain(|q| !matches!(q.default(), DefaultValue::Assumed(_)));
-        
+
         // Run the filtered survey
         let collected = backend.collect(&definition, &T::validate_field)
             .map_err(|e| SurveyError::Backend(e.into()))?;
         responses.extend(collected);
-        
+
         Ok(T::from_responses(&responses))
     }
 }
@@ -1323,7 +1304,7 @@ fn validate_field(path: &ResponsePath, value: &str, responses: &Responses) -> Re
     if let Some(nested_path) = path.strip_prefix("address") {
         return Address::validate_field(&nested_path, value, responses);
     }
-    
+
     // Direct field validation
     match path.as_str() {
         "name" => validate_name(value, responses),
@@ -1341,7 +1322,7 @@ fn from_responses(responses: &Responses) -> Self {
     // Extract nested responses for Address
     let address_responses = responses.filter_prefix(&ResponsePath::root("address"));
     let address = Address::from_responses(&address_responses);
-    
+
     Person {
         name: responses.get_string(&ResponsePath::root("name")),
         address,
@@ -1373,7 +1354,7 @@ The user first selects a variant ("Email" or "Phone"), then fills in that varian
 
 ### Enum Variant Selection Storage
 
-When an enum field is collected, the selected variant index is stored using a reserved key `"selected_variant"` within that field's namespace:
+When an enum field is collected, the selected variant index is stored using a reserved key `"selected_variant"` within that field's namespace (see [QuestionKind](#questionkind) section for detailed response path examples):
 
 ```rust
 // For the Contact example above, responses might contain:
@@ -1426,10 +1407,10 @@ Fields of type `Option<T>` are always presented to the user. An empty response b
 struct Person {
     #[ask("Full name:")]
     name: String,
-    
+
     #[ask("Middle name (optional):")]
     middle_name: Option<String>,
-    
+
     #[ask("Age:")]
     age: Option<u32>,
 }
@@ -1499,7 +1480,7 @@ These never reach runtime, so they don't need runtime error types.
 pub enum SurveyError {
     /// User cancelled the survey (Ctrl+C, closed window, etc.)
     Cancelled,
-    
+
     /// Backend-specific failure (I/O, UI framework crash, etc.)
     Backend(anyhow::Error),
 }
@@ -1512,30 +1493,16 @@ Only two variants:
 
 ### Backend Trait
 
-```rust
-pub trait SurveyBackend {
-    type Error: Into<anyhow::Error>;
-    
-    /// Collect responses for a survey.
-    /// 
-    /// Returns Ok(responses) on success, Err on cancellation or backend failure.
-    /// Validation is handled internally — this only returns when all fields are valid.
-    fn collect(
-        &self,
-        definition: &SurveyDefinition,
-        validate: &dyn Fn(&ResponsePath, &str, &Responses) -> Result<(), String>,
-    ) -> Result<Responses, Self::Error>;
-}
-```
+Backends implement the `SurveyBackend` trait (see [SurveyBackend Trait](#surveybackend-trait) section for full definition).
 
-The `Into<anyhow::Error>` bound is permissive:
+The key point for error handling: backends return `Result<Responses, Self::Error>` where `Self::Error: Into<anyhow::Error>`. This permissive bound accepts:
 
 - Custom error types implementing `std::error::Error` ✓
 - `anyhow::Error` itself ✓
 - `std::io::Error` ✓
 - Any `thiserror` derived error ✓
 
-The validate function is for the backend to use internally in its retry loop — it's not for surfacing errors to the caller.
+Backends handle validation internally in retry loops — errors are only returned for cancellation or backend failures.
 
 ### Builder Conversion
 
