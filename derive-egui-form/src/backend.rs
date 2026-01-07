@@ -721,6 +721,21 @@ struct SurveyApp {
 }
 
 impl SurveyApp {
+    /// Format a prompt as a label, adding a colon only if the prompt doesn't end with punctuation.
+    fn format_label(prompt: &str) -> String {
+        let trimmed = prompt.trim();
+        if trimmed.is_empty() {
+            return String::new();
+        }
+        // If already ends with punctuation, don't add a colon
+        let last_char = trimmed.chars().last().unwrap();
+        if matches!(last_char, ':' | '?' | '!' | '.') {
+            trimmed.to_string()
+        } else {
+            format!("{trimmed}:")
+        }
+    }
+
     fn render_question(
         &self,
         ui: &mut egui::Ui,
@@ -793,7 +808,7 @@ impl SurveyApp {
         state: &mut FormState,
     ) {
         ui.horizontal(|ui| {
-            ui.label(format!("{prompt}:"));
+            ui.label(Self::format_label(prompt));
         });
 
         if let Some(FieldState::Text {
@@ -849,7 +864,7 @@ impl SurveyApp {
         state: &mut FormState,
     ) {
         ui.horizontal(|ui| {
-            ui.label(format!("{prompt}:"));
+            ui.label(Self::format_label(prompt));
             if let (Some(min), Some(max)) = (int_q.min, int_q.max) {
                 ui.label(format!("({min} - {max})"));
             } else if let Some(min) = int_q.min {
@@ -917,7 +932,7 @@ impl SurveyApp {
         state: &mut FormState,
     ) {
         ui.horizontal(|ui| {
-            ui.label(format!("{prompt}:"));
+            ui.label(Self::format_label(prompt));
             if let (Some(min), Some(max)) = (float_q.min, float_q.max) {
                 ui.label(format!("({min} - {max})"));
             } else if let Some(min) = float_q.min {
@@ -995,7 +1010,7 @@ impl SurveyApp {
         one_of: &OneOfQuestion,
         state: &mut FormState,
     ) {
-        ui.label(format!("{prompt}:"));
+        ui.label(Self::format_label(prompt));
 
         let selected = if let Some(FieldState::OneOf { selected, .. }) = state.fields.get(path) {
             *selected
@@ -1041,7 +1056,7 @@ impl SurveyApp {
         any_of: &AnyOfQuestion,
         state: &mut FormState,
     ) {
-        ui.label(format!("{prompt}:"));
+        ui.label(Self::format_label(prompt));
 
         // Get current selection state
         let selections = if let Some(FieldState::AnyOf { selected, .. }) = state.fields.get(path) {
