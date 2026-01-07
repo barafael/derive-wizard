@@ -964,6 +964,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive-html-document"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "derive-survey",
+]
+
+[[package]]
 name = "derive-requestty-wizard"
 version = "0.1.0"
 dependencies = [
