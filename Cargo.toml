@@ -8,6 +8,7 @@ members = [
     "derive-egui-form",
     "derive-html-document",
     "derive-survey-macro",
+    "derive-ratatui-wizard",
     "derive-requestty-wizard",
     "derive-survey-types",
     "derive-wizard",

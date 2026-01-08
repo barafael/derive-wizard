@@ -19,6 +19,7 @@ use syn::{
 /// - `#[prelude("...")]` - Message shown before the survey starts
 /// - `#[epilogue("...")]` - Message shown after the survey completes
 /// - `#[validate("fn_name")]` - Composite validator function
+/// - `#[validate_fields("fn_name")]` - Propagate a field-level validator to all numeric child fields
 ///
 /// ## On fields
 /// - `#[ask("...")]` - The prompt text shown to the user (required for non-primitive types)
@@ -34,6 +35,7 @@ use syn::{
         mask,
         multiline,
         validate,
+        validate_fields,
         min,
         max,
         prelude,
@@ -119,6 +121,8 @@ struct TypeAttrs {
     prelude: Option<String>,
     epilogue: Option<String>,
     validate: Option<Ident>,
+    /// Validator to propagate to all numeric child fields
+    validate_fields: Option<Ident>,
 }
 
 impl TypeAttrs {
@@ -126,6 +130,7 @@ impl TypeAttrs {
         let mut prelude = None;
         let mut epilogue = None;
         let mut validate = None;
+        let mut validate_fields = None;
 
         for attr in attrs {
             if attr.path().is_ident("prelude") {
@@ -134,6 +139,8 @@ impl TypeAttrs {
                 epilogue = Some(extract_string_attr(attr)?);
             } else if attr.path().is_ident("validate") {
                 validate = Some(extract_ident_attr(attr)?);
+            } else if attr.path().is_ident("validate_fields") {
+                validate_fields = Some(extract_ident_attr(attr)?);
             }
         }
 
@@ -141,6 +148,7 @@ impl TypeAttrs {
             prelude,
             epilogue,
             validate,
+            validate_fields,
         })
     }
 }
@@ -271,7 +279,7 @@ fn generate_survey_fn(input: &DeriveInput, type_attrs: &TypeAttrs) -> syn::Resul
     };
 
     let questions = match &input.data {
-        Data::Struct(data) => generate_struct_questions(data)?,
+        Data::Struct(data) => generate_struct_questions(data, type_attrs.validate_fields.as_ref())?,
         Data::Enum(data) => generate_enum_questions(data, &input.ident)?,
         Data::Union(_) => {
             return Err(syn::Error::new_spanned(
@@ -290,7 +298,10 @@ fn generate_survey_fn(input: &DeriveInput, type_attrs: &TypeAttrs) -> syn::Resul
     })
 }
 
-fn generate_struct_questions(data: &syn::DataStruct) -> syn::Result<TokenStream2> {
+fn generate_struct_questions(
+    data: &syn::DataStruct,
+    propagated_validator: Option<&Ident>,
+) -> syn::Result<TokenStream2> {
     let mut questions = Vec::new();
 
     match &data.fields {
@@ -299,7 +310,12 @@ fn generate_struct_questions(data: &syn::DataStruct) -> syn::Result<TokenStream2
                 let field_name = field.ident.as_ref().unwrap();
                 let field_name_str = field_name.to_string();
                 let attrs = FieldAttrs::extract(&field.attrs)?;
-                let question = generate_question_for_field(&field_name_str, &field.ty, &attrs)?;
+                let question = generate_question_for_field(
+                    &field_name_str,
+                    &field.ty,
+                    &attrs,
+                    propagated_validator,
+                )?;
                 questions.push(question);
             }
         }
@@ -307,7 +323,12 @@ fn generate_struct_questions(data: &syn::DataStruct) -> syn::Result<TokenStream2
             for (i, field) in fields.unnamed.iter().enumerate() {
                 let field_name_str = i.to_string();
                 let attrs = FieldAttrs::extract(&field.attrs)?;
-                let question = generate_question_for_field(&field_name_str, &field.ty, &attrs)?;
+                let question = generate_question_for_field(
+                    &field_name_str,
+                    &field.ty,
+                    &attrs,
+                    propagated_validator,
+                )?;
                 questions.push(question);
             }
         }
@@ -334,7 +355,7 @@ fn generate_enum_questions(data: &syn::DataEnum, _enum_name: &Ident) -> syn::Res
                 // Newtype variant - wrap in AllOf with a single Question to preserve prompt
                 let field = &fields.unnamed[0];
                 let attrs = FieldAttrs::extract(&field.attrs)?;
-                let q = generate_question_for_field("0", &field.ty, &attrs)?;
+                let q = generate_question_for_field("0", &field.ty, &attrs, None)?;
                 quote! { derive_survey::QuestionKind::AllOf(derive_survey::AllOfQuestion::new(vec![#q])) }
             }
             Fields::Unnamed(fields) => {
@@ -343,7 +364,7 @@ fn generate_enum_questions(data: &syn::DataEnum, _enum_name: &Ident) -> syn::Res
                 for (i, field) in fields.unnamed.iter().enumerate() {
                     let name = i.to_string();
                     let attrs = FieldAttrs::extract(&field.attrs)?;
-                    let q = generate_question_for_field(&name, &field.ty, &attrs)?;
+                    let q = generate_question_for_field(&name, &field.ty, &attrs, None)?;
                     qs.push(q);
                 }
                 quote! { derive_survey::QuestionKind::AllOf(derive_survey::AllOfQuestion::new(vec![#(#qs),*])) }
@@ -354,7 +375,7 @@ fn generate_enum_questions(data: &syn::DataEnum, _enum_name: &Ident) -> syn::Res
                 for field in &fields.named {
                     let name = field.ident.as_ref().unwrap().to_string();
                     let attrs = FieldAttrs::extract(&field.attrs)?;
-                    let q = generate_question_for_field(&name, &field.ty, &attrs)?;
+                    let q = generate_question_for_field(&name, &field.ty, &attrs, None)?;
                     qs.push(q);
                 }
                 quote! { derive_survey::QuestionKind::AllOf(derive_survey::AllOfQuestion::new(vec![#(#qs),*])) }
@@ -386,6 +407,7 @@ fn generate_question_for_field(
     field_name: &str,
     ty: &Type,
     attrs: &FieldAttrs,
+    propagated_validator: Option<&Ident>,
 ) -> syn::Result<TokenStream2> {
     // Use field name as default prompt, converting snake_case to Title Case
     let default_prompt = field_name
@@ -400,7 +422,7 @@ fn generate_question_for_field(
         .collect::<Vec<_>>()
         .join(" ");
     let ask = attrs.ask.clone().unwrap_or(default_prompt);
-    let kind = generate_question_kind(ty, attrs)?;
+    let kind = generate_question_kind(ty, attrs, propagated_validator)?;
 
     Ok(quote! {
         derive_survey::Question::new(
@@ -411,7 +433,11 @@ fn generate_question_for_field(
     })
 }
 
-fn generate_question_kind(ty: &Type, attrs: &FieldAttrs) -> syn::Result<TokenStream2> {
+fn generate_question_kind(
+    ty: &Type,
+    attrs: &FieldAttrs,
+    propagated_validator: Option<&Ident>,
+) -> syn::Result<TokenStream2> {
     // Handle special attributes first
     if attrs.mask {
         return Ok(quote! {
@@ -463,8 +489,20 @@ fn generate_question_kind(ty: &Type, attrs: &FieldAttrs) -> syn::Result<TokenStr
                 Some(m) => quote! { Some(#m) },
                 None => quote! { None },
             };
+            // Use field-level validator if present, otherwise use propagated validator
+            let validate_opt = match (&attrs.validate, propagated_validator) {
+                (Some(v), _) => {
+                    let v_str = v.to_string();
+                    quote! { Some(#v_str.to_string()) }
+                }
+                (None, Some(v)) => {
+                    let v_str = v.to_string();
+                    quote! { Some(#v_str.to_string()) }
+                }
+                (None, None) => quote! { None },
+            };
             Ok(quote! {
-                derive_survey::QuestionKind::Int(derive_survey::IntQuestion::with_bounds(#min_opt, #max_opt))
+                derive_survey::QuestionKind::Int(derive_survey::IntQuestion::with_bounds_and_validator(#min_opt, #max_opt, #validate_opt))
             })
         }
         "f32" | "f64" => {
@@ -482,8 +520,20 @@ fn generate_question_kind(ty: &Type, attrs: &FieldAttrs) -> syn::Result<TokenStr
                 }
                 None => quote! { None },
             };
+            // Use field-level validator if present, otherwise use propagated validator
+            let validate_opt = match (&attrs.validate, propagated_validator) {
+                (Some(v), _) => {
+                    let v_str = v.to_string();
+                    quote! { Some(#v_str.to_string()) }
+                }
+                (None, Some(v)) => {
+                    let v_str = v.to_string();
+                    quote! { Some(#v_str.to_string()) }
+                }
+                (None, None) => quote! { None },
+            };
             Ok(quote! {
-                derive_survey::QuestionKind::Float(derive_survey::FloatQuestion::with_bounds(#min_opt, #max_opt))
+                derive_survey::QuestionKind::Float(derive_survey::FloatQuestion::with_bounds_and_validator(#min_opt, #max_opt, #validate_opt))
             })
         }
         "PathBuf" => Ok(quote! {
@@ -492,7 +542,7 @@ fn generate_question_kind(ty: &Type, attrs: &FieldAttrs) -> syn::Result<TokenStr
         _ => {
             // Check if it's an Option<T>
             if let Some(inner_ty) = extract_option_inner_type(ty) {
-                let inner_kind = generate_question_kind(&inner_ty, attrs)?;
+                let inner_kind = generate_question_kind(&inner_ty, attrs, propagated_validator)?;
                 // TODO: Handle Option properly - for now treat as inner type
                 return Ok(inner_kind);
             }
@@ -753,11 +803,27 @@ fn generate_value_extraction(field_name: &str, ty: &Type) -> TokenStream2 {
 fn generate_validate_field_fn(input: &DeriveInput) -> syn::Result<TokenStream2> {
     let mut validators = Vec::new();
 
+    // Note: min/max validation is NOT generated here because:
+    // 1. It's stored in IntQuestion/FloatQuestion and handled by backends directly
+    // 2. This function runs ALL validators for ALL fields, so field-specific
+    //    min/max checks would incorrectly apply to other fields
+
+    // Add the propagated validator (from #[validate_fields]) if present
+    let type_attrs = TypeAttrs::extract(&input.attrs)?;
+    if let Some(validator) = &type_attrs.validate_fields {
+        validators.push(quote! {
+            if let Err(e) = #validator(value, responses) {
+                return Err(e);
+            }
+        });
+    }
+
     match &input.data {
         Data::Struct(data) => {
             if let Fields::Named(fields) = &data.fields {
                 for field in &fields.named {
                     let attrs = FieldAttrs::extract(&field.attrs)?;
+                    let ty = &field.ty;
 
                     if let Some(validator) = &attrs.validate {
                         // The validator is called directly with the value being validated
@@ -768,44 +834,39 @@ fn generate_validate_field_fn(input: &DeriveInput) -> syn::Result<TokenStream2> 
                         });
                     }
 
-                    // Add min/max validation for numeric types
-                    if attrs.min.is_some() || attrs.max.is_some() {
-                        let type_name = type_to_string(&field.ty);
-                        if matches!(
-                            type_name.as_str(),
-                            "i8" | "i16"
-                                | "i32"
-                                | "i64"
-                                | "isize"
-                                | "u8"
-                                | "u16"
-                                | "u32"
-                                | "u64"
-                                | "usize"
-                        ) {
-                            let min_check = attrs.min.map(|m| {
-                                quote! {
-                                    if parsed < #m {
-                                        return Err(format!("Value must be at least {}", #m));
-                                    }
-                                }
-                            });
-                            let max_check = attrs.max.map(|m| {
-                                quote! {
-                                    if parsed > #m {
-                                        return Err(format!("Value must be at most {}", #m));
-                                    }
-                                }
-                            });
+                    // Delegate to nested Survey types for validation
+                    let type_name = type_to_string(ty);
+                    let is_primitive = matches!(
+                        type_name.as_str(),
+                        "String"
+                            | "&str"
+                            | "bool"
+                            | "i8"
+                            | "i16"
+                            | "i32"
+                            | "i64"
+                            | "isize"
+                            | "u8"
+                            | "u16"
+                            | "u32"
+                            | "u64"
+                            | "usize"
+                            | "f32"
+                            | "f64"
+                            | "PathBuf"
+                    );
 
-                            validators.push(quote! {
-                                if let derive_survey::ResponseValue::Int(parsed) = value {
-                                    let parsed = *parsed;
-                                    #min_check
-                                    #max_check
-                                }
-                            });
-                        }
+                    // Skip Vec types (they're handled differently) and primitives
+                    if !is_primitive
+                        && extract_vec_inner_type(ty).is_none()
+                        && extract_option_inner_type(ty).is_none()
+                    {
+                        validators.push(quote! {
+                            // Delegate validation to nested Survey type
+                            if let Err(e) = <#ty as derive_survey::Survey>::validate_field(value, responses) {
+                                return Err(e);
+                            }
+                        });
                     }
                 }
             }
@@ -877,6 +938,13 @@ fn generate_validator_checks(input: &DeriveInput) -> syn::Result<TokenStream2> {
     if let Some(validator) = &type_attrs.validate {
         checks.push(quote! {
             const _: fn(&derive_survey::Responses) -> std::collections::HashMap<derive_survey::ResponsePath, String> = #validator;
+        });
+    }
+
+    // Check propagated field validator (validate_fields)
+    if let Some(validator) = &type_attrs.validate_fields {
+        checks.push(quote! {
+            const _: fn(&derive_survey::ResponseValue, &derive_survey::Responses) -> Result<(), String> = #validator;
         });
     }
 

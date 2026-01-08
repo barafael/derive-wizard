@@ -365,6 +365,20 @@ impl IntQuestion {
             validate: None,
         }
     }
+
+    /// Create with bounds and a validator.
+    pub fn with_bounds_and_validator(
+        min: Option<i64>,
+        max: Option<i64>,
+        validate: Option<String>,
+    ) -> Self {
+        Self {
+            default: None,
+            min,
+            max,
+            validate,
+        }
+    }
 }
 
 /// Configuration for a floating-point input question.
@@ -396,6 +410,20 @@ impl FloatQuestion {
             min,
             max,
             validate: None,
+        }
+    }
+
+    /// Create with bounds and a validator.
+    pub fn with_bounds_and_validator(
+        min: Option<f64>,
+        max: Option<f64>,
+        validate: Option<String>,
+    ) -> Self {
+        Self {
+            default: None,
+            min,
+            max,
+            validate,
         }
     }
 }

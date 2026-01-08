@@ -990,8 +990,18 @@ dependencies = [
 name = "derive-html-document"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "derive-survey",
+]
+
+[[package]]
+name = "derive-ratatui-wizard"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "crossterm 0.29.0",
+ "derive-survey",
+ "ratatui",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
@@ -1008,7 +1018,6 @@ dependencies = [
 name = "derive-survey"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "derive-survey-macro",
  "derive-survey-types",
  "thiserror 2.0.17",
