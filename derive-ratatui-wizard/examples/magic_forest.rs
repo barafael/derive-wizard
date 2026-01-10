@@ -1,5 +1,4 @@
 //! Magic Forest - A comprehensive example demonstrating ALL derive-survey features
-//! with the ratatui wizard backend.
 //!
 //! This example showcases:
 //! - Prelude and epilogue messages
@@ -17,7 +16,6 @@
 //! - Field-level validation
 //! - Builder API with suggestions and assumptions
 //! - PathBuf support
-//! - Custom theme
 
 use derive_ratatui_wizard::{RatatuiBackend, Theme};
 use derive_survey::{ResponseValue, Responses, Survey};
@@ -142,22 +140,14 @@ fn validate_stat_total(value: &ResponseValue, responses: &Responses) -> Result<(
         return Ok(());
     };
 
-    let stat_paths = [
-        "stats.strength",
-        "stats.dexterity",
-        "stats.intelligence",
-        "stats.wisdom",
-        "stats.charisma",
-        "stats.constitution",
-    ];
-
-    let mut total: i64 = *current_value; // Include the current value being validated
-
-    for path in stat_paths {
-        if let Some(ResponseValue::Int(val)) = responses.get(&path.into()) {
-            total += val;
-        }
-    }
+    // Use typed accessors instead of string paths
+    let total: i64 = *current_value
+        + CharacterStats::get_strength(responses).unwrap_or(0) as i64
+        + CharacterStats::get_dexterity(responses).unwrap_or(0) as i64
+        + CharacterStats::get_intelligence(responses).unwrap_or(0) as i64
+        + CharacterStats::get_wisdom(responses).unwrap_or(0) as i64
+        + CharacterStats::get_charisma(responses).unwrap_or(0) as i64
+        + CharacterStats::get_constitution(responses).unwrap_or(0) as i64;
 
     let remaining = MAX_STAT_POINTS - total + current_value; // Points remaining after this
 
@@ -415,17 +405,15 @@ enum Language {
 #[allow(dead_code)]
 #[derive(Survey, Debug)]
 #[prelude(
-    "Welcome, brave adventurer, to the Magic Forest!\n\nYou stand at the edge of an ancient woodland, ready to begin your journey.\nFirst, tell about yourself...\n\n"
+    "Welcome, brave adventurer, to the Magic Forest!\nYou stand at the edge of an ancient woodland, ready to begin your journey.\nFirst, tell about yourself...\n\n"
 )]
-#[epilogue(
-    "Your character has been created!\n\nMay your legend in the Magic Forest be adventurous."
-)]
+#[epilogue("Your character has been created!\nMay your legend in the Magic Forest be adventurous.")]
 struct MagicForest {
     #[ask("What is your name?")]
     #[validate(validate_name)]
     name: String,
 
-    #[ask("What is your age in earthen years?")]
+    #[ask("What is your age in years?")]
     #[min(16)]
     #[max(1000)]
     age: u32,
@@ -511,21 +499,66 @@ fn main() {
         .with_theme(fantasy_theme);
 
     let result = MagicForest::builder()
-        .suggest_name("Aragorn".to_string())
-        .suggest_age(87)
+        // Simple field suggestions
+        .suggest_name("Gandalf".to_string())
+        .suggest_age(500) // Wizards live long, but within the 1000 year max
+        .suggest_email("gandalf@middleearth.org".to_string())
         .suggest_lucky_number(7)
         .suggest_gold_multiplier_raw(5)
         .suggest_hardcore_mode(false)
+        // Nested struct suggestion using closure API
+        .suggest_home(|home| {
+            home.realm("Middle-earth")
+                .village("Hobbiton")
+                .distance_leagues(500.0)
+        })
+        // Nested struct for character stats (total must be <= 75)
+        .suggest_stats(|stats| {
+            stats
+                .strength(8)
+                .dexterity(10)
+                .intelligence(18)
+                .wisdom(16)
+                .charisma(12)
+                .constitution(10)
+            // Total: 8+10+18+16+12+10 = 74, within the 75 point limit
+        })
+        // Enum suggestion with variant selection and nested fields
+        .suggest_role(|role| {
+            // Pre-select Mage as the default class
+            role.suggest_mage()
+        })
+        // Enum with struct variant fields
+        .suggest_background(|bg| {
+            // Pre-select Hermit and suggest its fields (years max is 50)
+            bg.suggest_hermit().hermit(|h| {
+                h.years(42)
+                    .wisdom("A wizard is never late, nor is he early.")
+            })
+        })
+        // Enum with various variant types
+        .suggest_companion(|comp| {
+            // Pre-select Familiar variant and configure its fields
+            comp.suggest_familiar()
+                .familiar(|f| f.name("Shadowfax").form(|form| form.suggest_other()))
+                // Also suggest values for Friend variant (in case user picks it)
+                .friend(|details| {
+                    details
+                        .name("Hynix")
+                        .species(|sp| sp.suggest_horse())
+                        .years_together(15)
+                })
+        })
         .run(backend);
 
     match result {
         Ok(character) => {
             let gold_multiplier = character.gold_multiplier_raw as f64 / 5.0;
             println!("\n");
-            println!("╔══════════════════════════════════════════════════════════════╗");
-            println!("║              CHARACTER CREATION COMPLETE                      ║");
-            println!("╠══════════════════════════════════════════════════════════════╣");
-            println!("║                                                               ║");
+            println!("╔═════════════════════════════════════════════════════════╗");
+            println!("║              CHARACTER CREATION COMPLETE                ║");
+            println!("╠═════════════════════════════════════════════════════════╣");
+            println!("║                                                         ║");
             println!("  Name: {}", character.name);
             println!("  Age: {} years", character.age);
             println!("  Email: {}", character.email);

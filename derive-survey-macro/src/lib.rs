@@ -75,6 +75,9 @@ fn implement_survey(input: &DeriveInput) -> syn::Result<TokenStream2> {
     // Generate validator compile-time checks
     let validator_checks = generate_validator_checks(input)?;
 
+    // Generate typed field accessor methods
+    let field_accessors = generate_field_accessors(input)?;
+
     Ok(quote! {
         #validator_checks
 
@@ -106,6 +109,8 @@ fn implement_survey(input: &DeriveInput) -> syn::Result<TokenStream2> {
             pub fn builder() -> #builder_name {
                 #builder_name::new()
             }
+
+            #field_accessors
         }
 
         #builder_impl
@@ -797,6 +802,94 @@ fn generate_value_extraction(field_name: &str, ty: &Type) -> TokenStream2 {
 }
 
 // ============================================================================
+// Field Accessor Generation
+// ============================================================================
+
+/// Generate typed field accessor methods for retrieving values from Responses.
+/// These methods allow validators to access field values without using string paths.
+fn generate_field_accessors(input: &DeriveInput) -> syn::Result<TokenStream2> {
+    let mut accessors = Vec::new();
+
+    match &input.data {
+        Data::Struct(data) => {
+            if let Fields::Named(fields) = &data.fields {
+                for field in &fields.named {
+                    let field_name = field.ident.as_ref().unwrap();
+                    let field_name_str = field_name.to_string();
+                    let ty = &field.ty;
+
+                    let accessor = generate_field_accessor_method(&field_name_str, field_name, ty);
+                    accessors.push(accessor);
+                }
+            }
+        }
+        Data::Enum(_) => {
+            // Enums don't need field accessors in the same way
+        }
+        Data::Union(_) => {}
+    }
+
+    Ok(quote! {
+        #(#accessors)*
+    })
+}
+
+/// Generate a single field accessor method
+fn generate_field_accessor_method(
+    field_name_str: &str,
+    field_name: &Ident,
+    ty: &Type,
+) -> TokenStream2 {
+    let method_name = format_ident!("get_{}", field_name);
+    let type_name = type_to_string(ty);
+    let path_expr = quote! { derive_survey::ResponsePath::new(#field_name_str) };
+
+    match type_name.as_str() {
+        "String" => quote! {
+            /// Get the value of this field from responses, if present.
+            pub fn #method_name(responses: &derive_survey::Responses) -> Option<String> {
+                responses.get_string(&#path_expr).ok().map(|s| s.to_string())
+            }
+        },
+        "bool" => quote! {
+            /// Get the value of this field from responses, if present.
+            pub fn #method_name(responses: &derive_survey::Responses) -> Option<bool> {
+                responses.get_bool(&#path_expr).ok()
+            }
+        },
+        "i8" | "i16" | "i32" | "i64" | "isize" => quote! {
+            /// Get the value of this field from responses, if present.
+            pub fn #method_name(responses: &derive_survey::Responses) -> Option<#ty> {
+                responses.get_int(&#path_expr).ok().map(|n| n as #ty)
+            }
+        },
+        "u8" | "u16" | "u32" | "u64" | "usize" => quote! {
+            /// Get the value of this field from responses, if present.
+            pub fn #method_name(responses: &derive_survey::Responses) -> Option<#ty> {
+                responses.get_int(&#path_expr).ok().map(|n| n as #ty)
+            }
+        },
+        "f32" | "f64" => quote! {
+            /// Get the value of this field from responses, if present.
+            pub fn #method_name(responses: &derive_survey::Responses) -> Option<#ty> {
+                responses.get_float(&#path_expr).ok().map(|n| n as #ty)
+            }
+        },
+        "PathBuf" => quote! {
+            /// Get the value of this field from responses, if present.
+            pub fn #method_name(responses: &derive_survey::Responses) -> Option<std::path::PathBuf> {
+                responses.get_string(&#path_expr).ok().map(std::path::PathBuf::from)
+            }
+        },
+        _ => {
+            // For complex types (nested structs, enums, etc.), we don't generate accessors
+            // as they would require more complex handling
+            quote! {}
+        }
+    }
+}
+
+// ============================================================================
 // Validation Generation
 // ============================================================================
 
@@ -997,7 +1090,13 @@ fn generate_validator_checks(input: &DeriveInput) -> syn::Result<TokenStream2> {
 fn generate_builder(input: &DeriveInput, builder_name: &Ident) -> syn::Result<TokenStream2> {
     let name = &input.ident;
 
-    // Collect all fields for suggest/assume methods
+    // Generate the SuggestBuilder for this type
+    let suggest_builder = generate_suggest_builder(input)?;
+
+    // Generate Option builders for any Option<T> fields
+    let option_builders = collect_option_builders(input);
+
+    // Collect all fields for suggest/assume methods on the main builder
     let mut suggest_methods = Vec::new();
     let mut assume_methods = Vec::new();
 
@@ -1055,12 +1154,30 @@ fn generate_builder(input: &DeriveInput, builder_name: &Ident) -> syn::Result<To
 
             fn apply_to_definition(&self, definition: &mut derive_survey::SurveyDefinition) {
                 for question in &mut definition.questions {
-                    self.apply_to_question(question);
+                    self.apply_to_question(question, "");
                 }
             }
 
-            fn apply_to_question(&self, question: &mut derive_survey::Question) {
-                let path_str = question.path().as_str().to_string();
+            fn apply_to_question(&self, question: &mut derive_survey::Question, parent_prefix: &str) {
+                let path_str = if parent_prefix.is_empty() {
+                    question.path().as_str().to_string()
+                } else if question.path().as_str().is_empty() {
+                    parent_prefix.to_string()
+                } else {
+                    format!("{}.{}", parent_prefix, question.path().as_str())
+                };
+
+                // Handle is_none marker for Option fields (assumptions only)
+                let none_key = format!("{}.is_none", path_str);
+                if let Some(derive_survey::ResponseValue::Bool(true)) = self.assumptions.get(&none_key) {
+                    // For assumed None, skip this question entirely
+                    question.set_assumption(derive_survey::ResponseValue::Bool(false));
+                    return;
+                }
+                if let Some(derive_survey::ResponseValue::Bool(true)) = self.suggestions.get(&none_key) {
+                    // For suggested None, set a suggestion marker (backend handles this)
+                    question.set_suggestion(derive_survey::ResponseValue::Bool(false));
+                }
 
                 // Check for assumption first (takes priority)
                 if let Some(value) = self.assumptions.get(&path_str) {
@@ -1077,23 +1194,53 @@ fn generate_builder(input: &DeriveInput, builder_name: &Ident) -> syn::Result<To
                 match question.kind_mut() {
                     derive_survey::QuestionKind::AllOf(all_of) => {
                         for q in all_of.questions_mut() {
-                            self.apply_to_question(q);
+                            self.apply_to_question(q, &path_str);
                         }
                     }
                     derive_survey::QuestionKind::OneOf(one_of) => {
+                        // Handle selected_variant for enums
+                        let variant_key = format!("{}.selected_variant", path_str);
+                        if let Some(derive_survey::ResponseValue::ChosenVariant(idx)) = self.assumptions.get(&variant_key) {
+                            one_of.default = Some(*idx);
+                        } else if let Some(derive_survey::ResponseValue::ChosenVariant(idx)) = self.suggestions.get(&variant_key) {
+                            one_of.default = Some(*idx);
+                        }
+
+                        // Recurse into variant fields
                         for variant in &mut one_of.variants {
-                            if let derive_survey::QuestionKind::AllOf(all_of) = &mut variant.kind {
-                                for q in all_of.questions_mut() {
-                                    self.apply_to_question(q);
+                            match &mut variant.kind {
+                                derive_survey::QuestionKind::AllOf(all_of) => {
+                                    for q in all_of.questions_mut() {
+                                        self.apply_to_question(q, &path_str);
+                                    }
+                                }
+                                derive_survey::QuestionKind::Unit => {}
+                                other => {
+                                    // For newtype variants, create a temporary question wrapper
+                                    let mut temp_q = derive_survey::Question::new(
+                                        derive_survey::ResponsePath::new("0"),
+                                        "",
+                                        std::mem::replace(other, derive_survey::QuestionKind::Unit),
+                                    );
+                                    self.apply_to_question(&mut temp_q, &path_str);
+                                    *other = std::mem::replace(temp_q.kind_mut(), derive_survey::QuestionKind::Unit);
                                 }
                             }
                         }
                     }
                     derive_survey::QuestionKind::AnyOf(any_of) => {
+                        // Handle selected_variants for multi-select
+                        let variants_key = format!("{}.selected_variants", path_str);
+                        if let Some(derive_survey::ResponseValue::ChosenVariants(indices)) = self.assumptions.get(&variants_key) {
+                            any_of.defaults = indices.clone();
+                        } else if let Some(derive_survey::ResponseValue::ChosenVariants(indices)) = self.suggestions.get(&variants_key) {
+                            any_of.defaults = indices.clone();
+                        }
+
                         for variant in &mut any_of.variants {
                             if let derive_survey::QuestionKind::AllOf(all_of) = &mut variant.kind {
                                 for q in all_of.questions_mut() {
-                                    self.apply_to_question(q);
+                                    self.apply_to_question(q, &path_str);
                                 }
                             }
                         }
@@ -1108,7 +1255,652 @@ fn generate_builder(input: &DeriveInput, builder_name: &Ident) -> syn::Result<To
                 Self::new()
             }
         }
+
+        #suggest_builder
+
+        #(#option_builders)*
     })
+}
+
+/// Generate the SuggestBuilder struct and impl for a type.
+/// This builder is used within closures to suggest/assume nested fields.
+fn generate_suggest_builder(input: &DeriveInput) -> syn::Result<TokenStream2> {
+    let name = &input.ident;
+    let suggest_builder_name = format_ident!("{}SuggestBuilder", name);
+
+    match &input.data {
+        Data::Struct(data) => {
+            generate_suggest_builder_for_struct(name, &suggest_builder_name, data)
+        }
+        Data::Enum(data) => generate_suggest_builder_for_enum(name, &suggest_builder_name, data),
+        Data::Union(_) => Ok(quote! {}),
+    }
+}
+
+/// Generate SuggestBuilder for a struct type
+fn generate_suggest_builder_for_struct(
+    _name: &Ident,
+    suggest_builder_name: &Ident,
+    data: &syn::DataStruct,
+) -> syn::Result<TokenStream2> {
+    let mut field_methods = Vec::new();
+
+    if let Fields::Named(fields) = &data.fields {
+        for field in &fields.named {
+            let field_name = field.ident.as_ref().unwrap();
+            let field_name_str = field_name.to_string();
+            let ty = &field.ty;
+
+            let method = generate_suggest_builder_field_method(&field_name_str, ty)?;
+            field_methods.push(method);
+        }
+    } else if let Fields::Unnamed(fields) = &data.fields {
+        for (i, field) in fields.unnamed.iter().enumerate() {
+            let field_name_str = i.to_string();
+            let ty = &field.ty;
+
+            let method = generate_suggest_builder_field_method(&field_name_str, ty)?;
+            field_methods.push(method);
+        }
+    }
+
+    Ok(quote! {
+        /// Builder for suggesting/assuming values for nested fields
+        pub struct #suggest_builder_name<'a> {
+            map: &'a mut std::collections::HashMap<String, derive_survey::ResponseValue>,
+            prefix: String,
+        }
+
+        impl<'a> #suggest_builder_name<'a> {
+            fn new(
+                map: &'a mut std::collections::HashMap<String, derive_survey::ResponseValue>,
+                prefix: String,
+            ) -> Self {
+                Self { map, prefix }
+            }
+
+            fn path(&self, field: &str) -> String {
+                if self.prefix.is_empty() {
+                    field.to_string()
+                } else {
+                    format!("{}.{}", self.prefix, field)
+                }
+            }
+
+            #(#field_methods)*
+        }
+    })
+}
+
+/// Generate SuggestBuilder for an enum type
+fn generate_suggest_builder_for_enum(
+    name: &Ident,
+    suggest_builder_name: &Ident,
+    data: &syn::DataEnum,
+) -> syn::Result<TokenStream2> {
+    let mut select_methods = Vec::new();
+    let mut variant_methods = Vec::new();
+    let mut variant_builders = Vec::new();
+
+    for (idx, variant) in data.variants.iter().enumerate() {
+        let variant_name = &variant.ident;
+        let variant_snake = to_snake_case(&variant_name.to_string());
+        let select_method_name = format_ident!("suggest_{}", variant_snake);
+
+        // Generate suggest_<variant>() method to pre-select this variant
+        select_methods.push(quote! {
+            /// Pre-select this variant as the suggested default choice
+            pub fn #select_method_name(self) -> Self {
+                self.map.insert(
+                    format!("{}.selected_variant", self.prefix),
+                    derive_survey::ResponseValue::ChosenVariant(#idx),
+                );
+                self
+            }
+        });
+
+        // Generate <variant>(closure) method for variants with fields
+        match &variant.fields {
+            Fields::Named(fields) if !fields.named.is_empty() => {
+                let variant_builder_name = format_ident!("{}{}SuggestBuilder", name, variant_name);
+                let method_name = format_ident!("{}", variant_snake);
+
+                variant_methods.push(quote! {
+                    /// Suggest values for this variant's fields
+                    pub fn #method_name<F>(self, f: F) -> Self
+                    where
+                        F: FnOnce(#variant_builder_name<'_>) -> #variant_builder_name<'_>,
+                    {
+                        let builder = #variant_builder_name::new(self.map, self.prefix.clone());
+                        f(builder);
+                        self
+                    }
+                });
+
+                // Generate the variant's field builder
+                let mut field_methods = Vec::new();
+                for field in &fields.named {
+                    let field_name = field.ident.as_ref().unwrap();
+                    let field_name_str = field_name.to_string();
+                    let ty = &field.ty;
+
+                    let method = generate_suggest_builder_field_method(&field_name_str, ty)?;
+                    field_methods.push(method);
+                }
+
+                variant_builders.push(quote! {
+                    /// Builder for suggesting values for variant fields
+                    pub struct #variant_builder_name<'a> {
+                        map: &'a mut std::collections::HashMap<String, derive_survey::ResponseValue>,
+                        prefix: String,
+                    }
+
+                    impl<'a> #variant_builder_name<'a> {
+                        fn new(
+                            map: &'a mut std::collections::HashMap<String, derive_survey::ResponseValue>,
+                            prefix: String,
+                        ) -> Self {
+                            Self { map, prefix }
+                        }
+
+                        fn path(&self, field: &str) -> String {
+                            if self.prefix.is_empty() {
+                                field.to_string()
+                            } else {
+                                format!("{}.{}", self.prefix, field)
+                            }
+                        }
+
+                        #(#field_methods)*
+                    }
+                });
+            }
+            Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+                // Newtype variant - use the inner type's builder directly for complex types
+                let field = &fields.unnamed[0];
+                let ty = &field.ty;
+                let type_name = type_to_string(ty);
+                let method_name = format_ident!("{}", variant_snake);
+
+                // Check if it's a primitive type
+                let is_primitive = matches!(
+                    type_name.as_str(),
+                    "String"
+                        | "bool"
+                        | "i8"
+                        | "i16"
+                        | "i32"
+                        | "i64"
+                        | "isize"
+                        | "u8"
+                        | "u16"
+                        | "u32"
+                        | "u64"
+                        | "usize"
+                        | "f32"
+                        | "f64"
+                        | "PathBuf"
+                );
+
+                if is_primitive {
+                    // For primitives, generate a direct value method
+                    let (param_type, conversion) = match type_name.as_str() {
+                        "String" => (
+                            quote! { impl Into<String> },
+                            quote! { derive_survey::ResponseValue::String(value.into()) },
+                        ),
+                        "bool" => (
+                            quote! { bool },
+                            quote! { derive_survey::ResponseValue::Bool(value) },
+                        ),
+                        "i8" | "i16" | "i32" | "i64" | "isize" => (
+                            quote! { #ty },
+                            quote! { derive_survey::ResponseValue::Int(value as i64) },
+                        ),
+                        "u8" | "u16" | "u32" | "u64" | "usize" => (
+                            quote! { #ty },
+                            quote! { derive_survey::ResponseValue::Int(value as i64) },
+                        ),
+                        "f32" | "f64" => (
+                            quote! { #ty },
+                            quote! { derive_survey::ResponseValue::Float(value as f64) },
+                        ),
+                        "PathBuf" => (
+                            quote! { impl Into<std::path::PathBuf> },
+                            quote! { derive_survey::ResponseValue::String(value.into().to_string_lossy().into_owned()) },
+                        ),
+                        _ => unreachable!(),
+                    };
+
+                    variant_methods.push(quote! {
+                        /// Suggest a value for this newtype variant
+                        pub fn #method_name(self, value: #param_type) -> Self {
+                            self.map.insert(
+                                format!("{}.0", self.prefix),
+                                #conversion,
+                            );
+                            self
+                        }
+                    });
+                } else {
+                    // For complex types, use the inner type's builder directly
+                    let inner_builder_name = format_ident!("{}SuggestBuilder", type_name);
+
+                    variant_methods.push(quote! {
+                        /// Suggest values for this newtype variant's inner type
+                        pub fn #method_name<F>(self, f: F) -> Self
+                        where
+                            F: FnOnce(#inner_builder_name<'_>) -> #inner_builder_name<'_>,
+                        {
+                            let builder = #inner_builder_name::new(
+                                self.map,
+                                format!("{}.0", self.prefix),
+                            );
+                            f(builder);
+                            self
+                        }
+                    });
+                }
+            }
+            Fields::Unnamed(fields) if fields.unnamed.len() > 1 => {
+                // Multi-field tuple variant - create intermediate builder
+                let variant_builder_name = format_ident!("{}{}SuggestBuilder", name, variant_name);
+                let method_name = format_ident!("{}", variant_snake);
+
+                variant_methods.push(quote! {
+                    /// Suggest values for this variant's fields
+                    pub fn #method_name<F>(self, f: F) -> Self
+                    where
+                        F: FnOnce(#variant_builder_name<'_>) -> #variant_builder_name<'_>,
+                    {
+                        let builder = #variant_builder_name::new(self.map, self.prefix.clone());
+                        f(builder);
+                        self
+                    }
+                });
+
+                // Generate the variant's field builder for tuple variants
+                let mut field_methods = Vec::new();
+                for (i, field) in fields.unnamed.iter().enumerate() {
+                    let field_name_str = i.to_string();
+                    let ty = &field.ty;
+
+                    let method = generate_suggest_builder_field_method(&field_name_str, ty)?;
+                    field_methods.push(method);
+                }
+
+                variant_builders.push(quote! {
+                    /// Builder for suggesting values for variant fields
+                    pub struct #variant_builder_name<'a> {
+                        map: &'a mut std::collections::HashMap<String, derive_survey::ResponseValue>,
+                        prefix: String,
+                    }
+
+                    impl<'a> #variant_builder_name<'a> {
+                        fn new(
+                            map: &'a mut std::collections::HashMap<String, derive_survey::ResponseValue>,
+                            prefix: String,
+                        ) -> Self {
+                            Self { map, prefix }
+                        }
+
+                        fn path(&self, field: &str) -> String {
+                            if self.prefix.is_empty() {
+                                field.to_string()
+                            } else {
+                                format!("{}.{}", self.prefix, field)
+                            }
+                        }
+
+                        #(#field_methods)*
+                    }
+                });
+            }
+            _ => {
+                // Unit variants - no closure method needed
+            }
+        }
+    }
+
+    Ok(quote! {
+        /// Builder for suggesting/assuming values for enum variants
+        pub struct #suggest_builder_name<'a> {
+            map: &'a mut std::collections::HashMap<String, derive_survey::ResponseValue>,
+            prefix: String,
+        }
+
+        impl<'a> #suggest_builder_name<'a> {
+            fn new(
+                map: &'a mut std::collections::HashMap<String, derive_survey::ResponseValue>,
+                prefix: String,
+            ) -> Self {
+                Self { map, prefix }
+            }
+
+            #(#select_methods)*
+            #(#variant_methods)*
+        }
+
+        #(#variant_builders)*
+    })
+}
+
+/// Generate a single field method for a SuggestBuilder
+fn generate_suggest_builder_field_method(field_name: &str, ty: &Type) -> syn::Result<TokenStream2> {
+    // For numeric field names (tuple structs), prefix with underscore
+    let method_name = if field_name
+        .chars()
+        .next()
+        .map(|c| c.is_ascii_digit())
+        .unwrap_or(false)
+    {
+        format_ident!("_{}", field_name)
+    } else {
+        format_ident!("{}", field_name)
+    };
+    let type_name = type_to_string(ty);
+
+    // Check for Option<T>
+    if let Some(inner_ty) = extract_option_inner_type(ty) {
+        return generate_option_suggest_method(field_name, &inner_ty);
+    }
+
+    // Skip Vec<T> types - they don't have a simple suggest pattern
+    if extract_vec_inner_type(ty).is_some() {
+        return Ok(quote! {});
+    }
+
+    // Check for primitives
+    let (param_type, conversion) = match type_name.as_str() {
+        "String" => (
+            Some(quote! { impl Into<String> }),
+            Some(quote! { derive_survey::ResponseValue::String(value.into()) }),
+        ),
+        "bool" => (
+            Some(quote! { bool }),
+            Some(quote! { derive_survey::ResponseValue::Bool(value) }),
+        ),
+        "i8" | "i16" | "i32" | "i64" | "isize" => (
+            Some(quote! { #ty }),
+            Some(quote! { derive_survey::ResponseValue::Int(value as i64) }),
+        ),
+        "u8" | "u16" | "u32" | "u64" | "usize" => (
+            Some(quote! { #ty }),
+            Some(quote! { derive_survey::ResponseValue::Int(value as i64) }),
+        ),
+        "f32" | "f64" => (
+            Some(quote! { #ty }),
+            Some(quote! { derive_survey::ResponseValue::Float(value as f64) }),
+        ),
+        "PathBuf" => (
+            Some(quote! { impl Into<std::path::PathBuf> }),
+            Some(
+                quote! { derive_survey::ResponseValue::String(value.into().to_string_lossy().into_owned()) },
+            ),
+        ),
+        _ => (None, None), // Complex type - closure-based
+    };
+
+    if let (Some(param_type), Some(conversion)) = (param_type, conversion) {
+        // Primitive type - direct value method
+        Ok(quote! {
+            /// Suggest a value for this field
+            pub fn #method_name(self, value: #param_type) -> Self {
+                self.map.insert(self.path(#field_name), #conversion);
+                self
+            }
+        })
+    } else {
+        // Complex type - closure-based method
+        let inner_builder_name = format_ident!("{}SuggestBuilder", type_name);
+
+        Ok(quote! {
+            /// Suggest values for this nested field
+            pub fn #method_name<F>(self, f: F) -> Self
+            where
+                F: FnOnce(#inner_builder_name<'_>) -> #inner_builder_name<'_>,
+            {
+                let builder = #inner_builder_name::new(self.map, self.path(#field_name));
+                f(builder);
+                self
+            }
+        })
+    }
+}
+
+/// Generate suggest method for Option<T> fields within SuggestBuilder
+fn generate_option_suggest_method(field_name: &str, inner_ty: &Type) -> syn::Result<TokenStream2> {
+    let method_name = format_ident!("{}", field_name);
+    let inner_type_name = type_to_string(inner_ty);
+    let option_builder_name =
+        format_ident!("Option{}SuggestBuilder", capitalize_first(&inner_type_name));
+
+    Ok(quote! {
+        /// Suggest a value for this optional field
+        pub fn #method_name<F>(self, f: F) -> Self
+        where
+            F: FnOnce(#option_builder_name<'_>) -> #option_builder_name<'_>,
+        {
+            let builder = #option_builder_name::new(self.map, self.path(#field_name));
+            f(builder);
+            self
+        }
+    })
+}
+
+/// Generate an Option<T> SuggestBuilder type
+fn generate_option_builder(inner_ty: &Type) -> TokenStream2 {
+    let inner_type_name = type_to_string(inner_ty);
+    let option_builder_name =
+        format_ident!("Option{}SuggestBuilder", capitalize_first(&inner_type_name));
+
+    // Check if inner type is primitive
+    let is_primitive = matches!(
+        inner_type_name.as_str(),
+        "String"
+            | "bool"
+            | "i8"
+            | "i16"
+            | "i32"
+            | "i64"
+            | "isize"
+            | "u8"
+            | "u16"
+            | "u32"
+            | "u64"
+            | "usize"
+            | "f32"
+            | "f64"
+            | "PathBuf"
+    );
+
+    if is_primitive {
+        // For primitive inner types, generate some(value) method
+        let (some_param, some_conversion) = match inner_type_name.as_str() {
+            "String" => (
+                quote! { impl Into<String> },
+                quote! { derive_survey::ResponseValue::String(value.into()) },
+            ),
+            "bool" => (
+                quote! { bool },
+                quote! { derive_survey::ResponseValue::Bool(value) },
+            ),
+            "i8" | "i16" | "i32" | "i64" | "isize" => (
+                quote! { #inner_ty },
+                quote! { derive_survey::ResponseValue::Int(value as i64) },
+            ),
+            "u8" | "u16" | "u32" | "u64" | "usize" => (
+                quote! { #inner_ty },
+                quote! { derive_survey::ResponseValue::Int(value as i64) },
+            ),
+            "f32" | "f64" => (
+                quote! { #inner_ty },
+                quote! { derive_survey::ResponseValue::Float(value as f64) },
+            ),
+            "PathBuf" => (
+                quote! { impl Into<std::path::PathBuf> },
+                quote! { derive_survey::ResponseValue::String(value.into().to_string_lossy().into_owned()) },
+            ),
+            _ => unreachable!(),
+        };
+
+        quote! {
+            /// Builder for suggesting Option<T> values
+            pub struct #option_builder_name<'a> {
+                map: &'a mut std::collections::HashMap<String, derive_survey::ResponseValue>,
+                prefix: String,
+            }
+
+            impl<'a> #option_builder_name<'a> {
+                fn new(
+                    map: &'a mut std::collections::HashMap<String, derive_survey::ResponseValue>,
+                    prefix: String,
+                ) -> Self {
+                    Self { map, prefix }
+                }
+
+                /// Suggest None (leave empty/skip this field)
+                pub fn none(self) -> Self {
+                    self.map.insert(
+                        format!("{}.is_none", self.prefix),
+                        derive_survey::ResponseValue::Bool(true),
+                    );
+                    self
+                }
+
+                /// Suggest Some with a value
+                pub fn some(self, value: #some_param) -> Self {
+                    self.map.insert(self.prefix.clone(), #some_conversion);
+                    self
+                }
+            }
+        }
+    } else {
+        // For complex inner types, generate some(closure) method
+        let inner_builder_name = format_ident!("{}SuggestBuilder", inner_type_name);
+
+        quote! {
+            /// Builder for suggesting Option<T> values
+            pub struct #option_builder_name<'a> {
+                map: &'a mut std::collections::HashMap<String, derive_survey::ResponseValue>,
+                prefix: String,
+            }
+
+            impl<'a> #option_builder_name<'a> {
+                fn new(
+                    map: &'a mut std::collections::HashMap<String, derive_survey::ResponseValue>,
+                    prefix: String,
+                ) -> Self {
+                    Self { map, prefix }
+                }
+
+                /// Suggest None (leave empty/skip this field)
+                pub fn none(self) -> Self {
+                    self.map.insert(
+                        format!("{}.is_none", self.prefix),
+                        derive_survey::ResponseValue::Bool(true),
+                    );
+                    self
+                }
+
+                /// Suggest Some with nested values
+                pub fn some<F>(self, f: F) -> Self
+                where
+                    F: FnOnce(#inner_builder_name<'_>) -> #inner_builder_name<'_>,
+                {
+                    let builder = #inner_builder_name::new(self.map, self.prefix.clone());
+                    f(builder);
+                    self
+                }
+            }
+        }
+    }
+}
+
+/// Collect all Option<T> types used in a struct/enum and generate their builders
+fn collect_option_builders(input: &DeriveInput) -> Vec<TokenStream2> {
+    let mut option_types: Vec<Type> = Vec::new();
+    let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut builders = Vec::new();
+
+    // Collect all Option types
+    match &input.data {
+        Data::Struct(data) => {
+            collect_option_types_from_fields(&data.fields, &mut option_types, &mut seen_names);
+        }
+        Data::Enum(data) => {
+            for variant in &data.variants {
+                collect_option_types_from_fields(
+                    &variant.fields,
+                    &mut option_types,
+                    &mut seen_names,
+                );
+            }
+        }
+        Data::Union(_) => {}
+    }
+
+    // Generate builders for each unique Option type
+    for ty in option_types {
+        builders.push(generate_option_builder(&ty));
+    }
+
+    builders
+}
+
+fn collect_option_types_from_fields(
+    fields: &Fields,
+    option_types: &mut Vec<Type>,
+    seen_names: &mut std::collections::HashSet<String>,
+) {
+    match fields {
+        Fields::Named(fields) => {
+            for field in &fields.named {
+                if let Some(inner) = extract_option_inner_type(&field.ty) {
+                    let name = type_to_string(&inner);
+                    if seen_names.insert(name) {
+                        option_types.push(inner);
+                    }
+                }
+            }
+        }
+        Fields::Unnamed(fields) => {
+            for field in &fields.unnamed {
+                if let Some(inner) = extract_option_inner_type(&field.ty) {
+                    let name = type_to_string(&inner);
+                    if seen_names.insert(name) {
+                        option_types.push(inner);
+                    }
+                }
+            }
+        }
+        Fields::Unit => {}
+    }
+}
+
+/// Convert CamelCase to snake_case
+fn to_snake_case(s: &str) -> String {
+    let mut result = String::new();
+    for (i, c) in s.chars().enumerate() {
+        if c.is_uppercase() {
+            if i > 0 {
+                result.push('_');
+            }
+            result.push(c.to_lowercase().next().unwrap());
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
+/// Capitalize first letter
+fn capitalize_first(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+    }
 }
 
 fn generate_builder_methods_for_type(
@@ -1223,51 +2015,118 @@ fn generate_suggest_assume_methods(
     let assume_name = format_ident!("assume_{}", method_suffix);
 
     let type_name = type_to_string(ty);
+
+    // Skip Vec<T> types - they use multiselect and don't have a simple suggest pattern
+    if extract_vec_inner_type(ty).is_some() {
+        return;
+    }
+
+    // Check for Option<T> - generate closure-based method
+    if let Some(inner_ty) = extract_option_inner_type(ty) {
+        let inner_type_name = type_to_string(&inner_ty);
+        let option_builder_name =
+            format_ident!("Option{}SuggestBuilder", capitalize_first(&inner_type_name));
+
+        suggest_methods.push(quote! {
+            /// Suggest a value for this optional field (user can modify)
+            pub fn #suggest_name<F>(mut self, f: F) -> Self
+            where
+                F: FnOnce(#option_builder_name<'_>) -> #option_builder_name<'_>,
+            {
+                let builder = #option_builder_name::new(&mut self.suggestions, #path_key.to_string());
+                f(builder);
+                self
+            }
+        });
+
+        assume_methods.push(quote! {
+            /// Assume a value for this optional field (question is skipped)
+            pub fn #assume_name<F>(mut self, f: F) -> Self
+            where
+                F: FnOnce(#option_builder_name<'_>) -> #option_builder_name<'_>,
+            {
+                let builder = #option_builder_name::new(&mut self.assumptions, #path_key.to_string());
+                f(builder);
+                self
+            }
+        });
+        return;
+    }
+
+    // Check for primitive types
     let (param_type, conversion) = match type_name.as_str() {
         "String" => (
-            quote! { impl Into<String> },
-            quote! { derive_survey::ResponseValue::String(value.into()) },
+            Some(quote! { impl Into<String> }),
+            Some(quote! { derive_survey::ResponseValue::String(value.into()) }),
         ),
         "bool" => (
-            quote! { bool },
-            quote! { derive_survey::ResponseValue::Bool(value) },
+            Some(quote! { bool }),
+            Some(quote! { derive_survey::ResponseValue::Bool(value) }),
         ),
         "i8" | "i16" | "i32" | "i64" | "isize" => (
-            quote! { #ty },
-            quote! { derive_survey::ResponseValue::Int(value as i64) },
+            Some(quote! { #ty }),
+            Some(quote! { derive_survey::ResponseValue::Int(value as i64) }),
         ),
         "u8" | "u16" | "u32" | "u64" | "usize" => (
-            quote! { #ty },
-            quote! { derive_survey::ResponseValue::Int(value as i64) },
+            Some(quote! { #ty }),
+            Some(quote! { derive_survey::ResponseValue::Int(value as i64) }),
         ),
         "f32" | "f64" => (
-            quote! { #ty },
-            quote! { derive_survey::ResponseValue::Float(value as f64) },
+            Some(quote! { #ty }),
+            Some(quote! { derive_survey::ResponseValue::Float(value as f64) }),
         ),
         "PathBuf" => (
-            quote! { impl Into<std::path::PathBuf> },
-            quote! { derive_survey::ResponseValue::String(value.into().to_string_lossy().into_owned()) },
+            Some(quote! { impl Into<std::path::PathBuf> }),
+            Some(
+                quote! { derive_survey::ResponseValue::String(value.into().to_string_lossy().into_owned()) },
+            ),
         ),
-        _ => {
-            // For complex types, don't generate individual methods
-            // They would need special handling
-            return;
-        }
+        _ => (None, None), // Complex type
     };
 
-    suggest_methods.push(quote! {
-        /// Suggest a default value for this field (user can modify)
-        pub fn #suggest_name(mut self, value: #param_type) -> Self {
-            self.suggestions.insert(#path_key.to_string(), #conversion);
-            self
-        }
-    });
+    if let (Some(param_type), Some(conversion)) = (param_type, conversion) {
+        // Primitive type - direct value methods
+        suggest_methods.push(quote! {
+            /// Suggest a default value for this field (user can modify)
+            pub fn #suggest_name(mut self, value: #param_type) -> Self {
+                self.suggestions.insert(#path_key.to_string(), #conversion);
+                self
+            }
+        });
 
-    assume_methods.push(quote! {
-        /// Assume a value for this field (question is skipped)
-        pub fn #assume_name(mut self, value: #param_type) -> Self {
-            self.assumptions.insert(#path_key.to_string(), #conversion);
-            self
-        }
-    });
+        assume_methods.push(quote! {
+            /// Assume a value for this field (question is skipped)
+            pub fn #assume_name(mut self, value: #param_type) -> Self {
+                self.assumptions.insert(#path_key.to_string(), #conversion);
+                self
+            }
+        });
+    } else {
+        // Complex type - closure-based methods
+        let inner_builder_name = format_ident!("{}SuggestBuilder", type_name);
+
+        suggest_methods.push(quote! {
+            /// Suggest values for this nested field (user can modify)
+            pub fn #suggest_name<F>(mut self, f: F) -> Self
+            where
+                F: FnOnce(#inner_builder_name<'_>) -> #inner_builder_name<'_>,
+            {
+                let builder = #inner_builder_name::new(&mut self.suggestions, #path_key.to_string());
+                f(builder);
+                self
+            }
+        });
+
+        assume_methods.push(quote! {
+            /// Assume values for this nested field (questions are skipped)
+            pub fn #assume_name<F>(mut self, f: F) -> Self
+            where
+                F: FnOnce(#inner_builder_name<'_>) -> #inner_builder_name<'_>,
+            {
+                let builder = #inner_builder_name::new(&mut self.assumptions, #path_key.to_string());
+                f(builder);
+                self
+            }
+        });
+    }
 }

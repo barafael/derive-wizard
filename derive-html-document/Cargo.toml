@@ -7,6 +7,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 derive-survey = { path = "../derive-survey" }
+anyhow = "1"
 
 [[example]]
 name = "simple"

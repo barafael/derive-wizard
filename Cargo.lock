@@ -990,6 +990,7 @@ dependencies = [
 name = "derive-html-document"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "derive-survey",
 ]
 
@@ -1018,6 +1019,7 @@ dependencies = [
 name = "derive-survey"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "derive-survey-macro",
  "derive-survey-types",
  "thiserror 2.0.17",

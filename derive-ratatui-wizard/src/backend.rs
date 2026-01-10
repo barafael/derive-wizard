@@ -410,7 +410,22 @@ impl WizardState {
                 }
                 QuestionKind::AllOf(all_of) => {
                     // Recursively flatten nested questions
-                    flat.extend(Self::flatten_questions(all_of.questions(), &path));
+                    let mut nested = Self::flatten_questions(all_of.questions(), &path);
+
+                    // If parent has a prompt and the first nested question has an empty prompt,
+                    // propagate the parent's prompt to the first nested question.
+                    // This handles the case of enum fields where the #[ask(...)] is on the
+                    // struct field but the enum generates a OneOf with an empty prompt.
+                    let parent_prompt = question.ask();
+                    if !parent_prompt.is_empty() {
+                        if let Some(first) = nested.first_mut() {
+                            if first.prompt.is_empty() {
+                                first.prompt = parent_prompt.to_string();
+                            }
+                        }
+                    }
+
+                    flat.extend(nested);
                 }
             }
         }
@@ -596,6 +611,40 @@ impl WizardState {
                     .insert(question.path.clone(), ResponseValue::Bool(answer));
             }
             FlatQuestionKind::Select { variants, .. } => {
+                // Get the base path (strip the selected_variant suffix)
+                let base_path = parent_path(&question.path);
+
+                // Check if we previously selected a different variant
+                let old_variant_idx = if let Some(ResponseValue::ChosenVariant(idx)) = old_value {
+                    Some(idx)
+                } else {
+                    None
+                };
+
+                // If changing variants, remove old variant's dynamically-inserted questions
+                // and clear their responses
+                if old_variant_idx.is_some() && old_variant_idx != Some(self.selected_option) {
+                    // Remove questions that were dynamically inserted for the old variant
+                    // These are questions after current_index whose path starts with base_path
+                    let base_path_str = base_path.as_str();
+                    let current_path_str = question.path.as_str();
+
+                    // Collect paths of questions to remove and remove the questions
+                    let i = self.current_index + 1;
+                    while i < self.questions.len() {
+                        let q_path = self.questions[i].path.as_str();
+                        // Remove if path starts with base_path but is not the select question itself
+                        if q_path.starts_with(base_path_str) && q_path != current_path_str {
+                            // Also remove the response for this question
+                            self.responses.remove(&self.questions[i].path);
+                            self.questions.remove(i);
+                        } else {
+                            // Stop when we hit a question outside this enum's scope
+                            break;
+                        }
+                    }
+                }
+
                 // Store the selected variant index
                 self.responses.insert(
                     question.path.clone(),
@@ -606,9 +655,6 @@ impl WizardState {
                 if let Some(vars) = variants
                     && let Some(selected_variant) = vars.get(self.selected_option)
                 {
-                    // Get the base path (strip the selected_variant suffix)
-                    let base_path = parent_path(&question.path);
-
                     // Flatten the variant's nested questions and insert after current
                     match &selected_variant.kind {
                         QuestionKind::AllOf(all_of) => {

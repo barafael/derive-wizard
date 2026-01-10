@@ -37,7 +37,7 @@ fn test_simple_survey_with_test_backend() {
 
     assert_eq!(config.name, "Alice");
     assert_eq!(config.age, 30);
-    assert_eq!(config.developer, true);
+    assert!(config.developer);
 }
 
 #[test]
@@ -122,4 +122,134 @@ fn test_mask_and_multiline() {
         survey.questions[1].kind(),
         QuestionKind::Multiline(_)
     ));
+}
+
+// ============================================================================
+// Nested Builder Tests
+// ============================================================================
+
+#[derive(Survey, Debug, PartialEq)]
+struct Address {
+    #[ask("Street address:")]
+    street: String,
+
+    #[ask("City:")]
+    city: String,
+
+    #[ask("Zip code:")]
+    zip: String,
+}
+
+#[derive(Survey, Debug, PartialEq)]
+enum PaymentMethod {
+    #[ask("Cash payment")]
+    Cash,
+
+    #[ask("Credit card")]
+    CreditCard {
+        #[ask("Card number:")]
+        number: String,
+        #[ask("CVV:")]
+        cvv: String,
+    },
+
+    #[ask("Bank transfer")]
+    BankTransfer {
+        #[ask("IBAN:")]
+        iban: String,
+    },
+}
+
+#[derive(Survey, Debug, PartialEq)]
+struct OrderForm {
+    #[ask("Customer name:")]
+    customer_name: String,
+
+    #[ask("Shipping address:")]
+    shipping_address: Address,
+
+    #[ask("Payment method:")]
+    payment: PaymentMethod,
+
+    #[ask("Nickname (optional):")]
+    nickname: Option<String>,
+}
+
+#[test]
+fn test_nested_struct_suggest_builder() {
+    // Test that closure-based suggest methods work for nested structs
+    let _builder = OrderForm::builder()
+        .suggest_customer_name("John Doe")
+        .suggest_shipping_address(|addr| {
+            addr.street("123 Main St").city("Springfield").zip("12345")
+        });
+}
+
+#[test]
+fn test_enum_suggest_builder_suggest_variant() {
+    // Test that suggest_* methods work for enums
+    let _builder = OrderForm::builder().suggest_payment(|p| p.suggest_cash());
+
+    let _builder2 = OrderForm::builder().suggest_payment(|p| p.suggest_credit_card());
+
+    let _builder3 = OrderForm::builder().suggest_payment(|p| p.suggest_bank_transfer());
+}
+
+#[test]
+fn test_enum_suggest_builder_variant_fields() {
+    // Test that variant field methods work
+    let _builder = OrderForm::builder().suggest_payment(|p| {
+        p.suggest_credit_card()
+            .credit_card(|cc| cc.number("4111111111111111").cvv("123"))
+    });
+}
+
+#[test]
+fn test_enum_suggest_multiple_variants() {
+    // Test that we can suggest values for multiple variants
+    // (only the selected one will be used, but all can have suggestions)
+    let _builder = OrderForm::builder().suggest_payment(|p| {
+        p.suggest_credit_card()
+            .credit_card(|cc| cc.number("4111111111111111").cvv("123"))
+            .bank_transfer(|bt| bt.iban("DE89370400440532013000"))
+    });
+}
+
+#[test]
+fn test_option_suggest_some() {
+    // Test that Option fields can be suggested with some()
+    let _builder = OrderForm::builder().suggest_nickname(|opt| opt.some("Johnny"));
+}
+
+#[test]
+fn test_option_suggest_none() {
+    // Test that Option fields can be suggested with none()
+    let _builder = OrderForm::builder().suggest_nickname(|opt| opt.none());
+}
+
+#[test]
+fn test_assume_nested_struct() {
+    // Test that assume works the same as suggest for nested structs
+    let _builder = OrderForm::builder().assume_shipping_address(|addr| {
+        addr.street("456 Oak Ave").city("Shelbyville").zip("67890")
+    });
+}
+
+#[test]
+fn test_assume_enum_with_fields() {
+    // Test that assume works for enums with variant fields
+    let _builder = OrderForm::builder().assume_payment(|p| {
+        p.suggest_bank_transfer()
+            .bank_transfer(|bt| bt.iban("DE89370400440532013000"))
+    });
+}
+
+#[test]
+fn test_combined_suggest_and_assume() {
+    // Test combining suggest and assume in one builder
+    let _builder = OrderForm::builder()
+        .suggest_customer_name("John Doe")
+        .assume_shipping_address(|addr| addr.street("123 Main St").city("Springfield").zip("12345"))
+        .suggest_payment(|p| p.suggest_cash())
+        .assume_nickname(|opt| opt.none());
 }

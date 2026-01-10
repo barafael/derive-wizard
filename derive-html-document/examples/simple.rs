@@ -6,6 +6,7 @@ use derive_html_document::to_html;
 use derive_survey::Survey;
 
 #[derive(Debug, Survey)]
+#[allow(unused)]
 struct UserProfile {
     #[ask("What is your name?")]
     name: String,
