@@ -1,7 +1,7 @@
 //! Dialoguer backend implementation for SurveyBackend trait.
 
 use derive_survey::{
-    DefaultValue, Question, QuestionKind, ResponsePath, ResponseValue, Responses,
+    DefaultValue, ListElementKind, Question, QuestionKind, ResponsePath, ResponseValue, Responses,
     SELECTED_VARIANT_KEY, SELECTED_VARIANTS_KEY, SurveyBackend, SurveyDefinition,
 };
 use dialoguer::{Confirm, Editor, Input, MultiSelect, Password, Select, theme::ColorfulTheme};
@@ -134,6 +134,15 @@ impl DialoguerBackend {
             QuestionKind::Confirm(confirm_q) => {
                 self.ask_confirm(&path, &prompt, confirm_q, question.default(), responses)
             }
+
+            QuestionKind::List(list_q) => self.ask_list(
+                &path,
+                &prompt,
+                list_q,
+                question.default(),
+                responses,
+                validate,
+            ),
 
             QuestionKind::OneOf(one_of) => {
                 self.ask_one_of(&path, &prompt, one_of, responses, validate)
@@ -462,6 +471,182 @@ impl DialoguerBackend {
         }
     }
 
+    fn ask_list(
+        &self,
+        path: &ResponsePath,
+        prompt: &str,
+        list_q: &derive_survey::ListQuestion,
+        _default: &DefaultValue,
+        responses: &mut Responses,
+        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+    ) -> Result<(), DialoguerError> {
+        let mut items: Vec<ResponseValue> = Vec::new();
+
+        println!("{}", prompt);
+        println!("  (Enter values one per line, empty line to finish)");
+
+        loop {
+            let item_prompt = format!("  [{}]", items.len() + 1);
+
+            let value = match &list_q.element_kind {
+                ListElementKind::String => {
+                    let mut _theme;
+                    let mut builder: Input<String>;
+                    if self.colorful {
+                        _theme = ColorfulTheme::default();
+                        builder = Input::with_theme(&_theme);
+                    } else {
+                        builder = Input::new();
+                    }
+
+                    builder = builder.with_prompt(&item_prompt).allow_empty(true);
+
+                    match builder.interact_text() {
+                        Ok(s) if s.is_empty() => break,
+                        Ok(s) => Some(ResponseValue::String(s)),
+                        Err(e) if is_cancelled(&e) => return Err(DialoguerError::Cancelled),
+                        Err(e) => return Err(DialoguerError::Dialoguer(e)),
+                    }
+                }
+                ListElementKind::Int { min, max } => {
+                    let mut _theme;
+                    let mut builder: Input<String>;
+                    if self.colorful {
+                        _theme = ColorfulTheme::default();
+                        builder = Input::with_theme(&_theme);
+                    } else {
+                        builder = Input::new();
+                    }
+
+                    builder = builder.with_prompt(&item_prompt).allow_empty(true);
+
+                    match builder.interact_text() {
+                        Ok(s) if s.is_empty() => break,
+                        Ok(s) => match s.parse::<i64>() {
+                            Ok(n) => {
+                                if let Some(min_val) = min {
+                                    if n < *min_val {
+                                        println!("    Error: Value must be at least {min_val}");
+                                        continue;
+                                    }
+                                }
+                                if let Some(max_val) = max {
+                                    if n > *max_val {
+                                        println!("    Error: Value must be at most {max_val}");
+                                        continue;
+                                    }
+                                }
+                                Some(ResponseValue::Int(n))
+                            }
+                            Err(_) => {
+                                println!("    Error: Please enter a valid integer");
+                                continue;
+                            }
+                        },
+                        Err(e) if is_cancelled(&e) => return Err(DialoguerError::Cancelled),
+                        Err(e) => return Err(DialoguerError::Dialoguer(e)),
+                    }
+                }
+                ListElementKind::Float { min, max } => {
+                    let mut _theme;
+                    let mut builder: Input<String>;
+                    if self.colorful {
+                        _theme = ColorfulTheme::default();
+                        builder = Input::with_theme(&_theme);
+                    } else {
+                        builder = Input::new();
+                    }
+
+                    builder = builder.with_prompt(&item_prompt).allow_empty(true);
+
+                    match builder.interact_text() {
+                        Ok(s) if s.is_empty() => break,
+                        Ok(s) => match s.parse::<f64>() {
+                            Ok(n) => {
+                                if let Some(min_val) = min {
+                                    if n < *min_val {
+                                        println!("    Error: Value must be at least {min_val}");
+                                        continue;
+                                    }
+                                }
+                                if let Some(max_val) = max {
+                                    if n > *max_val {
+                                        println!("    Error: Value must be at most {max_val}");
+                                        continue;
+                                    }
+                                }
+                                Some(ResponseValue::Float(n))
+                            }
+                            Err(_) => {
+                                println!("    Error: Please enter a valid number");
+                                continue;
+                            }
+                        },
+                        Err(e) if is_cancelled(&e) => return Err(DialoguerError::Cancelled),
+                        Err(e) => return Err(DialoguerError::Dialoguer(e)),
+                    }
+                }
+            };
+
+            if let Some(v) = value {
+                items.push(v);
+            }
+        }
+
+        // Convert to the appropriate list type
+        let rv = match &list_q.element_kind {
+            ListElementKind::String => {
+                let strings: Vec<String> = items
+                    .into_iter()
+                    .filter_map(|v| {
+                        if let ResponseValue::String(s) = v {
+                            Some(s)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                ResponseValue::StringList(strings)
+            }
+            ListElementKind::Int { .. } => {
+                let ints: Vec<i64> = items
+                    .into_iter()
+                    .filter_map(|v| {
+                        if let ResponseValue::Int(n) = v {
+                            Some(n)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                ResponseValue::IntList(ints)
+            }
+            ListElementKind::Float { .. } => {
+                let floats: Vec<f64> = items
+                    .into_iter()
+                    .filter_map(|v| {
+                        if let ResponseValue::Float(n) = v {
+                            Some(n)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                ResponseValue::FloatList(floats)
+            }
+        };
+
+        // Validate the entire list
+        if let Err(msg) = validate(&rv, responses) {
+            println!("Error: {msg}");
+            // For now, just return the error - in a real implementation we might loop
+            return Err(DialoguerError::ValidationError(msg));
+        }
+
+        responses.insert(path.clone(), rv);
+        Ok(())
+    }
+
     fn ask_one_of(
         &self,
         path: &ResponsePath,
@@ -517,7 +702,8 @@ impl DialoguerBackend {
             | QuestionKind::Float(_)
             | QuestionKind::Confirm(_)
             | QuestionKind::Masked(_)
-            | QuestionKind::Multiline(_) => {
+            | QuestionKind::Multiline(_)
+            | QuestionKind::List(_) => {
                 let variant_q = Question::new(
                     selected_variant.name.clone(),
                     format!("Enter {} value:", selected_variant.name),

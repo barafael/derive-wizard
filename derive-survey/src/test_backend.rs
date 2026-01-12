@@ -196,6 +196,20 @@ fn collect_question_responses(
                     return Err(TestBackendError::MissingResponse(path_str));
                 }
             }
+            QuestionKind::List(_) => {
+                if let Some(value) = test_responses.get(&path_str) {
+                    // Validate before inserting
+                    if let Err(msg) = validate(value, responses) {
+                        return Err(TestBackendError::ValidationFailed {
+                            path: path_str,
+                            message: msg,
+                        });
+                    }
+                    responses.insert(full_path.clone(), value.clone());
+                } else if !question.is_assumed() {
+                    return Err(TestBackendError::MissingResponse(path_str));
+                }
+            }
             QuestionKind::OneOf(one_of) => {
                 let variant_key = format!("{}.{}", path_str, crate::SELECTED_VARIANT_KEY);
                 if let Some(ResponseValue::ChosenVariant(idx)) = test_responses.get(&variant_key) {

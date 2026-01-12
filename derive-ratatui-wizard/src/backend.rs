@@ -9,7 +9,7 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use derive_survey::{
-    DefaultValue, Question, QuestionKind, ResponsePath, ResponseValue, Responses,
+    DefaultValue, ListElementKind, Question, QuestionKind, ResponsePath, ResponseValue, Responses,
     SELECTED_VARIANT_KEY, SELECTED_VARIANTS_KEY, SurveyBackend, SurveyDefinition,
 };
 
@@ -202,6 +202,9 @@ enum FlatQuestionKind {
     Confirm {
         default: bool,
     },
+    List {
+        element_kind: ListElementKind,
+    },
     Select {
         options: Vec<String>,
         default_idx: usize,
@@ -371,6 +374,18 @@ impl WizardState {
                         default_value: Some(if default { "yes" } else { "no" }.to_string()),
                         assumed,
                         has_validation: false,
+                    });
+                }
+                QuestionKind::List(list_q) => {
+                    flat.push(FlatQuestion {
+                        path,
+                        prompt: question.ask().to_string(),
+                        kind: FlatQuestionKind::List {
+                            element_kind: list_q.element_kind.clone(),
+                        },
+                        default_value: None,
+                        assumed,
+                        has_validation: list_q.validate.is_some(),
                     });
                 }
                 QuestionKind::OneOf(one_of) => {
@@ -609,6 +624,118 @@ impl WizardState {
                 let answer = self.selected_option == 0; // 0 = Yes, 1 = No
                 self.responses
                     .insert(question.path.clone(), ResponseValue::Bool(answer));
+            }
+            FlatQuestionKind::List { element_kind } => {
+                // Parse the input as a list (comma or newline separated)
+                let items: Vec<&str> = self
+                    .input
+                    .split(|c| c == ',' || c == '\n')
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+
+                let rv = match element_kind {
+                    ListElementKind::String => {
+                        ResponseValue::StringList(items.iter().map(|s| s.to_string()).collect())
+                    }
+                    ListElementKind::Int { min, max } => {
+                        let mut ints = Vec::new();
+                        for item in &items {
+                            match item.parse::<i64>() {
+                                Ok(n) => {
+                                    if let Some(min_val) = min {
+                                        if n < *min_val {
+                                            self.error_message = Some(format!(
+                                                "Value {} must be at least {}",
+                                                n, min_val
+                                            ));
+                                            if let Some(old) = old_value {
+                                                self.responses.insert(question.path.clone(), old);
+                                            }
+                                            return false;
+                                        }
+                                    }
+                                    if let Some(max_val) = max {
+                                        if n > *max_val {
+                                            self.error_message = Some(format!(
+                                                "Value {} must be at most {}",
+                                                n, max_val
+                                            ));
+                                            if let Some(old) = old_value {
+                                                self.responses.insert(question.path.clone(), old);
+                                            }
+                                            return false;
+                                        }
+                                    }
+                                    ints.push(n);
+                                }
+                                Err(_) => {
+                                    self.error_message =
+                                        Some(format!("'{}' is not a valid integer", item));
+                                    if let Some(old) = old_value {
+                                        self.responses.insert(question.path.clone(), old);
+                                    }
+                                    return false;
+                                }
+                            }
+                        }
+                        ResponseValue::IntList(ints)
+                    }
+                    ListElementKind::Float { min, max } => {
+                        let mut floats = Vec::new();
+                        for item in &items {
+                            match item.parse::<f64>() {
+                                Ok(n) => {
+                                    if let Some(min_val) = min {
+                                        if n < *min_val {
+                                            self.error_message = Some(format!(
+                                                "Value {} must be at least {}",
+                                                n, min_val
+                                            ));
+                                            if let Some(old) = old_value {
+                                                self.responses.insert(question.path.clone(), old);
+                                            }
+                                            return false;
+                                        }
+                                    }
+                                    if let Some(max_val) = max {
+                                        if n > *max_val {
+                                            self.error_message = Some(format!(
+                                                "Value {} must be at most {}",
+                                                n, max_val
+                                            ));
+                                            if let Some(old) = old_value {
+                                                self.responses.insert(question.path.clone(), old);
+                                            }
+                                            return false;
+                                        }
+                                    }
+                                    floats.push(n);
+                                }
+                                Err(_) => {
+                                    self.error_message =
+                                        Some(format!("'{}' is not a valid number", item));
+                                    if let Some(old) = old_value {
+                                        self.responses.insert(question.path.clone(), old);
+                                    }
+                                    return false;
+                                }
+                            }
+                        }
+                        ResponseValue::FloatList(floats)
+                    }
+                };
+
+                if question.has_validation {
+                    if let Err(err) = validate(&rv, &self.responses) {
+                        self.error_message = Some(err);
+                        if let Some(old) = old_value {
+                            self.responses.insert(question.path.clone(), old);
+                        }
+                        return false;
+                    }
+                }
+                self.responses.insert(question.path.clone(), rv);
             }
             FlatQuestionKind::Select { variants, .. } => {
                 // Get the base path (strip the selected_variant suffix)
@@ -851,6 +978,26 @@ impl WizardState {
                                 }
                             }
                         }
+                        ResponseValue::StringList(list) => {
+                            self.input = list.join(", ");
+                            self.cursor_pos = self.input.len();
+                        }
+                        ResponseValue::IntList(list) => {
+                            self.input = list
+                                .iter()
+                                .map(|n| n.to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            self.cursor_pos = self.input.len();
+                        }
+                        ResponseValue::FloatList(list) => {
+                            self.input = list
+                                .iter()
+                                .map(|n| n.to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            self.cursor_pos = self.input.len();
+                        }
                     }
                 }
             }
@@ -1059,6 +1206,29 @@ fn draw_ui(frame: &mut Frame, state: &WizardState) {
                 list_state.select(Some(state.selected_option));
                 frame.render_stateful_widget(list, content_chunks[1], &mut list_state);
             }
+            FlatQuestionKind::List { element_kind } => {
+                let type_hint = match element_kind {
+                    ListElementKind::String => "strings",
+                    ListElementKind::Int { .. } => "integers",
+                    ListElementKind::Float { .. } => "numbers",
+                };
+
+                let input_block = Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(state.theme.border))
+                    .title(format!(" List of {} (comma-separated) ", type_hint))
+                    .title_style(Style::default().fg(state.theme.secondary));
+
+                let input_widget = Paragraph::new(state.input.clone())
+                    .style(Style::default().fg(state.theme.text))
+                    .block(input_block);
+                frame.render_widget(input_widget, content_chunks[1]);
+
+                // Show cursor
+                let cursor_x = content_chunks[1].x + 1 + state.cursor_pos as u16;
+                let cursor_y = content_chunks[1].y + 1;
+                frame.set_cursor_position((cursor_x, cursor_y));
+            }
             FlatQuestionKind::Select { options, .. } => {
                 let items: Vec<ListItem> = options
                     .iter()
@@ -1138,6 +1308,9 @@ fn draw_ui(frame: &mut Frame, state: &WizardState) {
         }
         Some(FlatQuestionKind::MultiSelect { .. }) => {
             "↑/↓: Navigate  Space: Toggle  Enter: Confirm  Esc: Cancel  Backspace: Back"
+        }
+        Some(FlatQuestionKind::List { .. }) => {
+            "Enter values separated by commas  Enter: Submit  Esc: Cancel  Backspace: Back"
         }
         _ => "Enter: Submit  Esc: Cancel  Backspace: Back",
     };

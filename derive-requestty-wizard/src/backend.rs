@@ -1,7 +1,7 @@
 //! Requestty backend implementation for SurveyBackend trait.
 
 use derive_survey::{
-    DefaultValue, Question, QuestionKind, ResponsePath, ResponseValue, Responses,
+    DefaultValue, ListElementKind, Question, QuestionKind, ResponsePath, ResponseValue, Responses,
     SELECTED_VARIANT_KEY, SELECTED_VARIANTS_KEY, SurveyBackend, SurveyDefinition,
 };
 use thiserror::Error;
@@ -138,6 +138,15 @@ impl RequesttyBackend {
             QuestionKind::Confirm(confirm_q) => {
                 self.ask_confirm(&path, &prompt, confirm_q, question.default(), responses)
             }
+
+            QuestionKind::List(list_q) => self.ask_list(
+                &path,
+                &prompt,
+                list_q,
+                question.default(),
+                responses,
+                validate,
+            ),
 
             QuestionKind::OneOf(one_of) => {
                 self.ask_one_of(&path, &prompt, one_of, responses, validate)
@@ -472,6 +481,138 @@ impl RequesttyBackend {
         }
     }
 
+    fn ask_list(
+        &self,
+        path: &ResponsePath,
+        prompt: &str,
+        list_q: &derive_survey::ListQuestion,
+        _default: &DefaultValue,
+        responses: &mut Responses,
+        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+    ) -> Result<(), RequesttyError> {
+        let mut items: Vec<ResponseValue> = Vec::new();
+
+        println!("{}", prompt);
+        println!("  (Enter values one per line, empty line to finish)");
+
+        loop {
+            let item_prompt = format!("[{}]", items.len() + 1);
+
+            let q = requestty::Question::input(&item_prompt)
+                .message(&item_prompt)
+                .build();
+
+            let result = requestty::prompt_one(q)?;
+
+            match result {
+                requestty::Answer::String(s) if s.is_empty() => break,
+                requestty::Answer::String(s) => {
+                    let value = match &list_q.element_kind {
+                        ListElementKind::String => Some(ResponseValue::String(s)),
+                        ListElementKind::Int { min, max } => match s.parse::<i64>() {
+                            Ok(n) => {
+                                if let Some(min_val) = min {
+                                    if n < *min_val {
+                                        println!("    Error: Value must be at least {min_val}");
+                                        continue;
+                                    }
+                                }
+                                if let Some(max_val) = max {
+                                    if n > *max_val {
+                                        println!("    Error: Value must be at most {max_val}");
+                                        continue;
+                                    }
+                                }
+                                Some(ResponseValue::Int(n))
+                            }
+                            Err(_) => {
+                                println!("    Error: Please enter a valid integer");
+                                continue;
+                            }
+                        },
+                        ListElementKind::Float { min, max } => match s.parse::<f64>() {
+                            Ok(n) => {
+                                if let Some(min_val) = min {
+                                    if n < *min_val {
+                                        println!("    Error: Value must be at least {min_val}");
+                                        continue;
+                                    }
+                                }
+                                if let Some(max_val) = max {
+                                    if n > *max_val {
+                                        println!("    Error: Value must be at most {max_val}");
+                                        continue;
+                                    }
+                                }
+                                Some(ResponseValue::Float(n))
+                            }
+                            Err(_) => {
+                                println!("    Error: Please enter a valid number");
+                                continue;
+                            }
+                        },
+                    };
+
+                    if let Some(v) = value {
+                        items.push(v);
+                    }
+                }
+                _ => break,
+            }
+        }
+
+        // Convert to the appropriate list type
+        let rv = match &list_q.element_kind {
+            ListElementKind::String => {
+                let strings: Vec<String> = items
+                    .into_iter()
+                    .filter_map(|v| {
+                        if let ResponseValue::String(s) = v {
+                            Some(s)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                ResponseValue::StringList(strings)
+            }
+            ListElementKind::Int { .. } => {
+                let ints: Vec<i64> = items
+                    .into_iter()
+                    .filter_map(|v| {
+                        if let ResponseValue::Int(n) = v {
+                            Some(n)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                ResponseValue::IntList(ints)
+            }
+            ListElementKind::Float { .. } => {
+                let floats: Vec<f64> = items
+                    .into_iter()
+                    .filter_map(|v| {
+                        if let ResponseValue::Float(n) = v {
+                            Some(n)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                ResponseValue::FloatList(floats)
+            }
+        };
+
+        // Validate the entire list
+        if let Err(msg) = validate(&rv, responses) {
+            return Err(RequesttyError::PromptError(msg));
+        }
+
+        responses.insert(path.clone(), rv);
+        Ok(())
+    }
+
     fn ask_one_of(
         &self,
         path: &ResponsePath,
@@ -523,7 +664,8 @@ impl RequesttyBackend {
             | QuestionKind::Float(_)
             | QuestionKind::Confirm(_)
             | QuestionKind::Masked(_)
-            | QuestionKind::Multiline(_) => {
+            | QuestionKind::Multiline(_)
+            | QuestionKind::List(_) => {
                 // Create a synthetic question for the variant's data
                 let variant_q = Question::new(
                     selected_variant.name.clone(),

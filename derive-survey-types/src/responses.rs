@@ -182,6 +182,57 @@ impl Responses {
             None => Err(ResponseError::MissingPath(path.clone())),
         }
     }
+
+    /// Get a string list at the given path.
+    pub fn get_string_list(&self, path: &ResponsePath) -> Result<&[String], ResponseError> {
+        match self.get(path) {
+            Some(ResponseValue::StringList(list)) => Ok(list),
+            Some(other) => Err(ResponseError::TypeMismatch {
+                path: path.clone(),
+                expected: "StringList",
+                actual: other.type_name(),
+            }),
+            None => Err(ResponseError::MissingPath(path.clone())),
+        }
+    }
+
+    /// Get an integer list at the given path.
+    pub fn get_int_list(&self, path: &ResponsePath) -> Result<&[i64], ResponseError> {
+        match self.get(path) {
+            Some(ResponseValue::IntList(list)) => Ok(list),
+            Some(other) => Err(ResponseError::TypeMismatch {
+                path: path.clone(),
+                expected: "IntList",
+                actual: other.type_name(),
+            }),
+            None => Err(ResponseError::MissingPath(path.clone())),
+        }
+    }
+
+    /// Get a float list at the given path.
+    pub fn get_float_list(&self, path: &ResponsePath) -> Result<&[f64], ResponseError> {
+        match self.get(path) {
+            Some(ResponseValue::FloatList(list)) => Ok(list),
+            Some(other) => Err(ResponseError::TypeMismatch {
+                path: path.clone(),
+                expected: "FloatList",
+                actual: other.type_name(),
+            }),
+            None => Err(ResponseError::MissingPath(path.clone())),
+        }
+    }
+
+    /// Check if a response at the given path has a non-empty value.
+    ///
+    /// This is used for `Option<T>` fields: returns `false` if the response
+    /// is missing OR if it's an empty string (user skipped the optional field).
+    pub fn has_value(&self, path: &ResponsePath) -> bool {
+        match self.get(path) {
+            Some(ResponseValue::String(s)) => !s.is_empty(),
+            Some(_) => true,
+            None => false,
+        }
+    }
 }
 
 impl IntoIterator for Responses {

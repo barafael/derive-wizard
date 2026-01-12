@@ -1,9 +1,9 @@
 //! Egui backend implementation for SurveyBackend trait.
 
 use derive_survey::{
-    AllOfQuestion, AnyOfQuestion, DefaultValue, FloatQuestion, IntQuestion, OneOfQuestion,
-    Question, QuestionKind, ResponsePath, ResponseValue, Responses, SELECTED_VARIANT_KEY,
-    SELECTED_VARIANTS_KEY, SurveyBackend, SurveyDefinition, Variant,
+    AllOfQuestion, AnyOfQuestion, DefaultValue, FloatQuestion, IntQuestion, ListElementKind,
+    ListQuestion, OneOfQuestion, Question, QuestionKind, ResponsePath, ResponseValue, Responses,
+    SELECTED_VARIANT_KEY, SELECTED_VARIANTS_KEY, SurveyBackend, SurveyDefinition, Variant,
 };
 use eframe::egui;
 use std::collections::HashMap;
@@ -74,6 +74,11 @@ enum FieldState {
     Float { value: String, parsed: Option<f64> },
     /// Boolean toggle.
     Bool { value: bool },
+    /// List of values (comma-separated input).
+    List {
+        value: String,
+        element_kind: ListElementKind,
+    },
     /// Single selection from options (OneOf).
     OneOf {
         selected: Option<usize>,
@@ -96,6 +101,32 @@ impl FieldState {
             FieldState::Int { parsed, .. } => parsed.map(ResponseValue::Int),
             FieldState::Float { parsed, .. } => parsed.map(ResponseValue::Float),
             FieldState::Bool { value } => Some(ResponseValue::Bool(*value)),
+            FieldState::List {
+                value,
+                element_kind,
+            } => {
+                let items: Vec<&str> = value
+                    .split(',')
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+
+                match element_kind {
+                    ListElementKind::String => Some(ResponseValue::StringList(
+                        items.iter().map(|s| s.to_string()).collect(),
+                    )),
+                    ListElementKind::Int { .. } => {
+                        let ints: Result<Vec<i64>, _> =
+                            items.iter().map(|s| s.parse::<i64>()).collect();
+                        ints.ok().map(ResponseValue::IntList)
+                    }
+                    ListElementKind::Float { .. } => {
+                        let floats: Result<Vec<f64>, _> =
+                            items.iter().map(|s| s.parse::<f64>()).collect();
+                        floats.ok().map(ResponseValue::FloatList)
+                    }
+                }
+            }
             FieldState::OneOf { selected, .. } => selected.map(ResponseValue::ChosenVariant),
             FieldState::AnyOf { selected, .. } => {
                 let indices: Vec<usize> = selected
@@ -234,6 +265,15 @@ impl FormState {
                     .unwrap_or(confirm_q.default);
                 self.fields
                     .insert(path, FieldState::Bool { value: default });
+            }
+            QuestionKind::List(list_q) => {
+                self.fields.insert(
+                    path,
+                    FieldState::List {
+                        value: String::new(),
+                        element_kind: list_q.element_kind.clone(),
+                    },
+                );
             }
             QuestionKind::OneOf(one_of) => {
                 let variants: Vec<String> =
@@ -467,6 +507,17 @@ impl FormState {
                     );
                 }
             }
+            QuestionKind::List(list_q) => {
+                if !self.fields.contains_key(&path) {
+                    self.fields.insert(
+                        path,
+                        FieldState::List {
+                            value: String::new(),
+                            element_kind: list_q.element_kind.clone(),
+                        },
+                    );
+                }
+            }
             QuestionKind::AllOf(all_of) => {
                 for nested_q in all_of.questions() {
                     self.ensure_question_fields(nested_q, Some(&path));
@@ -529,6 +580,13 @@ impl FormState {
                 }
             }
             QuestionKind::Confirm(_) => {
+                if let Some(field) = self.fields.get(&path) {
+                    if let Some(value) = field.to_response_value() {
+                        responses.insert(path, value);
+                    }
+                }
+            }
+            QuestionKind::List(_) => {
                 if let Some(field) = self.fields.get(&path) {
                     if let Some(value) = field.to_response_value() {
                         responses.insert(path, value);
@@ -787,6 +845,9 @@ impl SurveyApp {
             QuestionKind::Confirm(_) => {
                 self.render_bool_field(ui, &path, &prompt, state);
             }
+            QuestionKind::List(list_q) => {
+                self.render_list_field(ui, &path, &prompt, list_q, state);
+            }
             QuestionKind::OneOf(one_of) => {
                 self.render_one_of(ui, &path, &prompt, one_of, state);
             }
@@ -999,6 +1060,40 @@ impl SurveyApp {
         if let Some(FieldState::Bool { value }) = state.fields.get_mut(path) {
             ui.checkbox(value, prompt);
         }
+        ui.add_space(8.0);
+    }
+
+    fn render_list_field(
+        &self,
+        ui: &mut egui::Ui,
+        path: &ResponsePath,
+        prompt: &str,
+        list_q: &ListQuestion,
+        state: &mut FormState,
+    ) {
+        let type_hint = match &list_q.element_kind {
+            ListElementKind::String => "strings",
+            ListElementKind::Int { .. } => "integers",
+            ListElementKind::Float { .. } => "numbers",
+        };
+
+        ui.label(Self::format_label(&format!(
+            "{} (comma-separated {})",
+            prompt, type_hint
+        )));
+
+        if let Some(FieldState::List { value, .. }) = state.fields.get_mut(path) {
+            let response = ui.add(egui::TextEdit::singleline(value).desired_width(300.0));
+            if response.changed() {
+                state.errors.remove(path);
+            }
+        }
+
+        // Show error if any
+        if let Some(error) = state.errors.get(path) {
+            ui.colored_label(egui::Color32::RED, error);
+        }
+
         ui.add_space(8.0);
     }
 

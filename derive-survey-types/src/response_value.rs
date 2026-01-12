@@ -20,6 +20,15 @@ pub enum ResponseValue {
 
     /// The indices of chosen variants in an AnyOf question (multi-select).
     ChosenVariants(Vec<usize>),
+
+    /// A list of string values (from List questions with String elements).
+    StringList(Vec<String>),
+
+    /// A list of integer values (from List questions with Int elements).
+    IntList(Vec<i64>),
+
+    /// A list of float values (from List questions with Float elements).
+    FloatList(Vec<f64>),
 }
 
 impl ResponseValue {
@@ -71,6 +80,30 @@ impl ResponseValue {
         }
     }
 
+    /// Try to get this value as a string list.
+    pub fn as_string_list(&self) -> Option<&[String]> {
+        match self {
+            Self::StringList(list) => Some(list),
+            _ => None,
+        }
+    }
+
+    /// Try to get this value as an integer list.
+    pub fn as_int_list(&self) -> Option<&[i64]> {
+        match self {
+            Self::IntList(list) => Some(list),
+            _ => None,
+        }
+    }
+
+    /// Try to get this value as a float list.
+    pub fn as_float_list(&self) -> Option<&[f64]> {
+        match self {
+            Self::FloatList(list) => Some(list),
+            _ => None,
+        }
+    }
+
     /// Get the type name of this value for error messages.
     pub fn type_name(&self) -> &'static str {
         match self {
@@ -80,6 +113,9 @@ impl ResponseValue {
             Self::Bool(_) => "Bool",
             Self::ChosenVariant(_) => "ChosenVariant",
             Self::ChosenVariants(_) => "ChosenVariants",
+            Self::StringList(_) => "StringList",
+            Self::IntList(_) => "IntList",
+            Self::FloatList(_) => "FloatList",
         }
     }
 }
@@ -123,5 +159,23 @@ impl From<bool> for ResponseValue {
 impl From<Vec<usize>> for ResponseValue {
     fn from(indices: Vec<usize>) -> Self {
         Self::ChosenVariants(indices)
+    }
+}
+
+impl From<Vec<String>> for ResponseValue {
+    fn from(list: Vec<String>) -> Self {
+        Self::StringList(list)
+    }
+}
+
+impl From<Vec<i64>> for ResponseValue {
+    fn from(list: Vec<i64>) -> Self {
+        Self::IntList(list)
+    }
+}
+
+impl From<Vec<f64>> for ResponseValue {
+    fn from(list: Vec<f64>) -> Self {
+        Self::FloatList(list)
     }
 }

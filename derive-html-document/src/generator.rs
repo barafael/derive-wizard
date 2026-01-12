@@ -1,6 +1,8 @@
 //! HTML form generator implementation.
 
-use derive_survey::{DefaultValue, Question, QuestionKind, Survey, SurveyDefinition};
+use derive_survey::{
+    DefaultValue, ListElementKind, Question, QuestionKind, Survey, SurveyDefinition,
+};
 
 /// Options for HTML generation.
 #[derive(Debug, Clone, Default)]
@@ -292,6 +294,25 @@ fn generate_question(
             html.push_str(&format!(
                 "{ind}  <label for=\"{field_id}\">{}</label>\n",
                 escape_html(&label)
+            ));
+            html.push_str(&format!("{ind}</div>\n"));
+        }
+
+        QuestionKind::List(list_q) => {
+            let type_hint = match &list_q.element_kind {
+                ListElementKind::String => "comma-separated text",
+                ListElementKind::Int { .. } => "comma-separated integers",
+                ListElementKind::Float { .. } => "comma-separated numbers",
+            };
+
+            html.push_str(&format!("{ind}<div class=\"{prefix}-field\">\n"));
+            html.push_str(&format!(
+                "{ind}  <label for=\"{field_id}\">{} ({})</label>\n",
+                escape_html(&label),
+                type_hint
+            ));
+            html.push_str(&format!(
+                "{ind}  <input type=\"text\" id=\"{field_id}\" name=\"{path}\" class=\"{prefix}-input\" placeholder=\"value1, value2, ...\">\n"
             ));
             html.push_str(&format!("{ind}</div>\n"));
         }

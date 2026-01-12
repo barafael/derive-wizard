@@ -456,23 +456,69 @@ fn generate_question_kind(
         });
     }
 
-    // Check for multiselect (Vec<Enum>)
-    if attrs.multiselect
-        && let Some(inner_ty) = extract_vec_inner_type(ty)
-    {
-        return Ok(quote! {
-            derive_survey::QuestionKind::AnyOf(derive_survey::AnyOfQuestion {
-                variants: <#inner_ty as derive_survey::Survey>::survey()
-                    .questions
-                    .into_iter()
-                    .flat_map(|q| match q.kind() {
-                        derive_survey::QuestionKind::OneOf(one_of) => one_of.variants.clone(),
-                        _ => vec![],
-                    })
-                    .collect(),
-                defaults: vec![],
-            })
-        });
+    // Check for Vec<T>
+    if let Some(inner_ty) = extract_vec_inner_type(ty) {
+        // If multiselect is set, use AnyOf for Vec<Enum>
+        if attrs.multiselect {
+            return Ok(quote! {
+                derive_survey::QuestionKind::AnyOf(derive_survey::AnyOfQuestion {
+                    variants: <#inner_ty as derive_survey::Survey>::survey()
+                        .questions
+                        .into_iter()
+                        .flat_map(|q| match q.kind() {
+                            derive_survey::QuestionKind::OneOf(one_of) => one_of.variants.clone(),
+                            _ => vec![],
+                        })
+                        .collect(),
+                    defaults: vec![],
+                })
+            });
+        }
+
+        // For Vec<primitive>, generate ListQuestion
+        let inner_type_name = type_to_string(&inner_ty);
+        match inner_type_name.as_str() {
+            "String" => {
+                return Ok(quote! {
+                    derive_survey::QuestionKind::List(derive_survey::ListQuestion::strings())
+                });
+            }
+            "i8" | "i16" | "i32" | "i64" | "isize" | "u8" | "u16" | "u32" | "u64" | "usize" => {
+                let min_opt = match attrs.min {
+                    Some(m) => quote! { Some(#m) },
+                    None => quote! { None },
+                };
+                let max_opt = match attrs.max {
+                    Some(m) => quote! { Some(#m) },
+                    None => quote! { None },
+                };
+                return Ok(quote! {
+                    derive_survey::QuestionKind::List(derive_survey::ListQuestion::ints_with_bounds(#min_opt, #max_opt))
+                });
+            }
+            "f32" | "f64" => {
+                let min_opt = match attrs.min {
+                    Some(m) => {
+                        let f = m as f64;
+                        quote! { Some(#f) }
+                    }
+                    None => quote! { None },
+                };
+                let max_opt = match attrs.max {
+                    Some(m) => {
+                        let f = m as f64;
+                        quote! { Some(#f) }
+                    }
+                    None => quote! { None },
+                };
+                return Ok(quote! {
+                    derive_survey::QuestionKind::List(derive_survey::ListQuestion::floats_with_bounds(#min_opt, #max_opt))
+                });
+            }
+            _ => {
+                // For other types (complex types without multiselect), fall through to error
+            }
+        }
     }
 
     // Handle types based on their name
@@ -550,14 +596,6 @@ fn generate_question_kind(
                 let inner_kind = generate_question_kind(&inner_ty, attrs, propagated_validator)?;
                 // TODO: Handle Option properly - for now treat as inner type
                 return Ok(inner_kind);
-            }
-
-            // Check if it's a Vec<T> (non-multiselect)
-            if let Some(_inner_ty) = extract_vec_inner_type(ty) {
-                // For Vec without multiselect, we need AnyOf
-                return Ok(quote! {
-                    derive_survey::QuestionKind::Input(derive_survey::InputQuestion::new())
-                });
             }
 
             // Assume it's a nested Survey type
@@ -751,7 +789,7 @@ fn generate_value_extraction(field_name: &str, ty: &Type) -> TokenStream2 {
             if let Some(inner_ty) = extract_option_inner_type(ty) {
                 let inner_extraction = generate_value_extraction(field_name, &inner_ty);
                 return quote! {
-                    if responses.get(&#path_expr).is_some() {
+                    if responses.has_value(&#path_expr) {
                         Some(#inner_extraction)
                     } else {
                         None
@@ -759,34 +797,76 @@ fn generate_value_extraction(field_name: &str, ty: &Type) -> TokenStream2 {
                 };
             }
 
-            // Check for Vec<T> with chosen_variants (AnyOf)
+            // Check for Vec<T>
             if let Some(inner_ty) = extract_vec_inner_type(ty) {
-                let variants_path = quote! {
-                    derive_survey::ResponsePath::new(
-                        &format!("{}.{}", #field_name, derive_survey::SELECTED_VARIANTS_KEY)
-                    )
-                };
-                return quote! {
-                    {
-                        let indices = responses
-                            .get_chosen_variants(&#variants_path)
-                            .map(|s| s.to_vec())
-                            .unwrap_or_default();
+                let inner_type_name = type_to_string(&inner_ty);
 
-                        // Reconstruct each item from its indexed responses
-                        indices
-                            .iter()
-                            .enumerate()
-                            .map(|(item_idx, _variant_idx)| {
-                                let item_prefix = derive_survey::ResponsePath::new(
-                                    &format!("{}.{}", #field_name, item_idx)
-                                );
-                                let item_responses = responses.filter_prefix(&item_prefix);
-                                <#inner_ty as derive_survey::Survey>::from_responses(&item_responses)
-                            })
-                            .collect()
+                // For primitive types, use the list response values
+                match inner_type_name.as_str() {
+                    "String" => {
+                        return quote! {
+                            responses.get_string_list(&#path_expr)
+                                .expect("missing string list")
+                                .to_vec()
+                        };
                     }
-                };
+                    "i8" | "i16" | "i32" | "i64" | "isize" => {
+                        return quote! {
+                            responses.get_int_list(&#path_expr)
+                                .expect("missing int list")
+                                .iter()
+                                .map(|&n| n as #inner_ty)
+                                .collect()
+                        };
+                    }
+                    "u8" | "u16" | "u32" | "u64" | "usize" => {
+                        return quote! {
+                            responses.get_int_list(&#path_expr)
+                                .expect("missing int list")
+                                .iter()
+                                .map(|&n| n as #inner_ty)
+                                .collect()
+                        };
+                    }
+                    "f32" | "f64" => {
+                        return quote! {
+                            responses.get_float_list(&#path_expr)
+                                .expect("missing float list")
+                                .iter()
+                                .map(|&n| n as #inner_ty)
+                                .collect()
+                        };
+                    }
+                    _ => {
+                        // For complex types (enums with multiselect), use chosen_variants
+                        let variants_path = quote! {
+                            derive_survey::ResponsePath::new(
+                                &format!("{}.{}", #field_name, derive_survey::SELECTED_VARIANTS_KEY)
+                            )
+                        };
+                        return quote! {
+                            {
+                                let indices = responses
+                                    .get_chosen_variants(&#variants_path)
+                                    .map(|s| s.to_vec())
+                                    .unwrap_or_default();
+
+                                // Reconstruct each item from its indexed responses
+                                indices
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(item_idx, _variant_idx)| {
+                                        let item_prefix = derive_survey::ResponsePath::new(
+                                            &format!("{}.{}", #field_name, item_idx)
+                                        );
+                                        let item_responses = responses.filter_prefix(&item_prefix);
+                                        <#inner_ty as derive_survey::Survey>::from_responses(&item_responses)
+                                    })
+                                    .collect()
+                            }
+                        };
+                    }
+                }
             }
 
             // Nested Survey type - filter responses and call its from_responses

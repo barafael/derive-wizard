@@ -97,6 +97,9 @@ pub enum QuestionKind {
     /// Yes/no confirmation.
     Confirm(ConfirmQuestion),
 
+    /// List of values (Vec<T> where T is a primitive type).
+    List(ListQuestion),
+
     /// Select any number of options from a list (Vec<Enum>).
     AnyOf(AnyOfQuestion),
 
@@ -122,6 +125,7 @@ impl QuestionKind {
                 | Self::Int(_)
                 | Self::Float(_)
                 | Self::Confirm(_)
+                | Self::List(_)
         )
     }
 
@@ -444,6 +448,107 @@ impl ConfirmQuestion {
     /// Create with a default value.
     pub fn with_default(default: bool) -> Self {
         Self { default }
+    }
+}
+
+/// The type of elements in a list question.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ListElementKind {
+    /// String elements.
+    String,
+    /// Integer elements with optional bounds.
+    Int { min: Option<i64>, max: Option<i64> },
+    /// Float elements with optional bounds.
+    Float { min: Option<f64>, max: Option<f64> },
+}
+
+impl Default for ListElementKind {
+    fn default() -> Self {
+        Self::String
+    }
+}
+
+/// Configuration for a list input question (Vec<T>).
+///
+/// Allows collecting multiple values of the same type.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ListQuestion {
+    /// The type of elements in the list.
+    pub element_kind: ListElementKind,
+
+    /// Optional minimum number of elements.
+    pub min_items: Option<usize>,
+
+    /// Optional maximum number of elements.
+    pub max_items: Option<usize>,
+
+    /// Validation function name.
+    pub validate: Option<String>,
+}
+
+impl ListQuestion {
+    /// Create a new list question for strings.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a list question for strings.
+    pub fn strings() -> Self {
+        Self {
+            element_kind: ListElementKind::String,
+            ..Default::default()
+        }
+    }
+
+    /// Create a list question for integers.
+    pub fn ints() -> Self {
+        Self {
+            element_kind: ListElementKind::Int {
+                min: None,
+                max: None,
+            },
+            ..Default::default()
+        }
+    }
+
+    /// Create a list question for integers with bounds.
+    pub fn ints_with_bounds(min: Option<i64>, max: Option<i64>) -> Self {
+        Self {
+            element_kind: ListElementKind::Int { min, max },
+            ..Default::default()
+        }
+    }
+
+    /// Create a list question for floats.
+    pub fn floats() -> Self {
+        Self {
+            element_kind: ListElementKind::Float {
+                min: None,
+                max: None,
+            },
+            ..Default::default()
+        }
+    }
+
+    /// Create a list question for floats with bounds.
+    pub fn floats_with_bounds(min: Option<f64>, max: Option<f64>) -> Self {
+        Self {
+            element_kind: ListElementKind::Float { min, max },
+            ..Default::default()
+        }
+    }
+
+    /// Set item count constraints.
+    pub fn with_item_bounds(mut self, min: Option<usize>, max: Option<usize>) -> Self {
+        self.min_items = min;
+        self.max_items = max;
+        self
+    }
+
+    /// Set a validator function.
+    pub fn with_validator(mut self, validate: impl Into<String>) -> Self {
+        self.validate = Some(validate.into());
+        self
     }
 }
 

@@ -542,12 +542,7 @@ fn main() {
             comp.suggest_familiar()
                 .familiar(|f| f.name("Shadowfax").form(|form| form.suggest_other()))
                 // Also suggest values for Friend variant (in case user picks it)
-                .friend(|details| {
-                    details
-                        .name("Hynix")
-                        .species(|sp| sp.suggest_horse())
-                        .years_together(15)
-                })
+                .friend(|details| details.name("Hynix"))
         })
         .run(backend);
 

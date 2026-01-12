@@ -21,8 +21,8 @@ pub use default_value::DefaultValue;
 mod question;
 pub use question::{
     AllOfQuestion, AnyOfQuestion, ConfirmQuestion, FloatQuestion, InputQuestion, IntQuestion,
-    MaskedQuestion, MultilineQuestion, OneOfQuestion, Question, QuestionKind, SELECTED_VARIANT_KEY,
-    SELECTED_VARIANTS_KEY, Variant,
+    ListElementKind, ListQuestion, MaskedQuestion, MultilineQuestion, OneOfQuestion, Question,
+    QuestionKind, SELECTED_VARIANT_KEY, SELECTED_VARIANTS_KEY, Variant,
 };
 
 mod survey_definition;
