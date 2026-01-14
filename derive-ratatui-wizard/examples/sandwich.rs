@@ -18,7 +18,7 @@ use derive_ratatui_wizard::{RatatuiBackend, Theme};
 use example_surveys::SandwichOrder;
 use ratatui::style::Color;
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let theme = Theme {
         primary: Color::Yellow,
         secondary: Color::LightYellow,
@@ -44,28 +44,8 @@ fn main() {
         .suggest_sauce(|s| s.suggest_oil_vinegar())
         .suggest_size(|sz| sz.suggest_six())
         .suggest_nutrition(|n| n.calories(600).protein(30))
-        .run(backend);
+        .run(backend)?;
 
-    match result {
-        Ok(order) => {
-            println!("\n=== Order Confirmed ===\n");
-            println!("Name: {}", order.name);
-            println!("Bread: {:?}", order.bread);
-            println!("Filling: {:?}", order.filling);
-            println!("Cheese: {:?}", order.cheese);
-            println!("Toppings: {:?}", order.toppings);
-            println!("Sauce: {:?}", order.sauce);
-            println!("Size: {:?}", order.size);
-            println!("Toasted: {}", if order.toasted { "Yes" } else { "No" });
-            println!("Tip: ${}", order.tip);
-            if !order.notes.is_empty() {
-                println!("Notes: {}", order.notes);
-            }
-            println!("\n{:#?}", order);
-        }
-        Err(e) => {
-            eprintln!("Order cancelled: {e}");
-            std::process::exit(1);
-        }
-    }
+    println!("{:#?}", order);
+    Ok(())
 }

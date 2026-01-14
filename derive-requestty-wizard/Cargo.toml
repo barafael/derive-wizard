@@ -12,7 +12,8 @@ anyhow = "1"
 thiserror = "2"
 
 [dev-dependencies]
-# Tests require interactive input, so we mostly test compilation
+anyhow = "1"
+example-surveys = { path = "../example-surveys" }
 
 [[example]]
 name = "simple"

@@ -86,6 +86,16 @@ impl ResponsePath {
     pub fn last(&self) -> Option<&str> {
         self.path.rsplit('.').next().filter(|s| !s.is_empty())
     }
+
+    /// Get the parent path by removing the last segment.
+    /// Returns an empty path if this path has only one segment.
+    pub fn parent(&self) -> Self {
+        if let Some(last_dot) = self.path.rfind('.') {
+            Self::new(&self.path[..last_dot])
+        } else {
+            Self::empty()
+        }
+    }
 }
 
 impl fmt::Display for ResponsePath {

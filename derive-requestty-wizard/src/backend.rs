@@ -49,7 +49,7 @@ impl RequesttyBackend {
         &self,
         question: &Question,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
         path_prefix: Option<&ResponsePath>,
     ) -> Result<(), RequesttyError> {
         let path = match path_prefix {
@@ -173,7 +173,7 @@ impl RequesttyBackend {
         input_q: &derive_survey::InputQuestion,
         default: &DefaultValue,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), RequesttyError> {
         loop {
             let mut q = requestty::Question::input(path.as_str()).message(prompt);
@@ -189,9 +189,10 @@ impl RequesttyBackend {
 
             // Set up validation - pass the value directly
             let responses_clone = responses.clone();
+            let path_clone = path.clone();
             let validate_fn = move |value: &str, _: &requestty::Answers| -> Result<(), String> {
                 let rv = ResponseValue::String(value.to_string());
-                validate(&rv, &responses_clone)
+                validate(&rv, &responses_clone, &path_clone)
             };
 
             let result = requestty::prompt_one(q.validate(validate_fn).build());
@@ -226,7 +227,7 @@ impl RequesttyBackend {
         multiline_q: &derive_survey::MultilineQuestion,
         default: &DefaultValue,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), RequesttyError> {
         loop {
             let mut q = requestty::Question::editor(path.as_str()).message(prompt);
@@ -240,9 +241,10 @@ impl RequesttyBackend {
             }
 
             let responses_clone = responses.clone();
+            let path_clone = path.clone();
             let validate_fn = move |value: &str, _: &requestty::Answers| -> Result<(), String> {
                 let rv = ResponseValue::String(value.to_string());
-                validate(&rv, &responses_clone)
+                validate(&rv, &responses_clone, &path_clone)
             };
 
             let result = requestty::prompt_one(q.validate(validate_fn).build());
@@ -276,7 +278,7 @@ impl RequesttyBackend {
         masked_q: &derive_survey::MaskedQuestion,
         default: &DefaultValue,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), RequesttyError> {
         // Note: requestty password doesn't support default values for security
         let _ = default;
@@ -289,9 +291,10 @@ impl RequesttyBackend {
             }
 
             let responses_clone = responses.clone();
+            let path_clone = path.clone();
             let validate_fn = move |value: &str, _: &requestty::Answers| -> Result<(), String> {
                 let rv = ResponseValue::String(value.to_string());
-                validate(&rv, &responses_clone)
+                validate(&rv, &responses_clone, &path_clone)
             };
 
             let result = requestty::prompt_one(q.validate(validate_fn).build());
@@ -325,7 +328,7 @@ impl RequesttyBackend {
         int_q: &derive_survey::IntQuestion,
         default: &DefaultValue,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), RequesttyError> {
         loop {
             let mut q = requestty::Question::int(path.as_str()).message(prompt);
@@ -342,6 +345,7 @@ impl RequesttyBackend {
             let min = int_q.min;
             let max = int_q.max;
             let responses_clone = responses.clone();
+            let path_clone = path.clone();
 
             let validate_fn = move |value: i64, _: &requestty::Answers| -> Result<(), String> {
                 // Check bounds first
@@ -357,7 +361,7 @@ impl RequesttyBackend {
                 }
                 // Then run custom validation
                 let rv = ResponseValue::Int(value);
-                validate(&rv, &responses_clone)
+                validate(&rv, &responses_clone, &path_clone)
             };
 
             let result = requestty::prompt_one(q.validate(validate_fn).build());
@@ -391,7 +395,7 @@ impl RequesttyBackend {
         float_q: &derive_survey::FloatQuestion,
         default: &DefaultValue,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), RequesttyError> {
         loop {
             let mut q = requestty::Question::float(path.as_str()).message(prompt);
@@ -408,6 +412,7 @@ impl RequesttyBackend {
             let min = float_q.min;
             let max = float_q.max;
             let responses_clone = responses.clone();
+            let path_clone = path.clone();
 
             let validate_fn = move |value: f64, _: &requestty::Answers| -> Result<(), String> {
                 if let Some(min_val) = min
@@ -421,7 +426,7 @@ impl RequesttyBackend {
                     return Err(format!("Value must be at most {max_val}"));
                 }
                 let rv = ResponseValue::Float(value);
-                validate(&rv, &responses_clone)
+                validate(&rv, &responses_clone, &path_clone)
             };
 
             let result = requestty::prompt_one(q.validate(validate_fn).build());
@@ -488,7 +493,7 @@ impl RequesttyBackend {
         list_q: &derive_survey::ListQuestion,
         _default: &DefaultValue,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), RequesttyError> {
         let mut items: Vec<ResponseValue> = Vec::new();
 
@@ -605,7 +610,7 @@ impl RequesttyBackend {
         };
 
         // Validate the entire list
-        if let Err(msg) = validate(&rv, responses) {
+        if let Err(msg) = validate(&rv, responses, path) {
             return Err(RequesttyError::PromptError(msg));
         }
 
@@ -619,7 +624,7 @@ impl RequesttyBackend {
         prompt: &str,
         one_of: &derive_survey::OneOfQuestion,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), RequesttyError> {
         // Build choices from variant names
         let choices: Vec<String> = one_of.variants.iter().map(|v| v.name.clone()).collect();
@@ -702,7 +707,7 @@ impl RequesttyBackend {
         prompt: &str,
         any_of: &derive_survey::AnyOfQuestion,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), RequesttyError> {
         // Loop until valid selection or user cancels
         let selections = loop {
@@ -738,7 +743,7 @@ impl RequesttyBackend {
 
             // Validate the selection before asking follow-up questions
             let selection_value = ResponseValue::ChosenVariants(selections.clone());
-            if let Err(msg) = validate(&selection_value, responses) {
+            if let Err(msg) = validate(&selection_value, responses, path) {
                 // Show error and let user re-select
                 println!("Error: {msg}");
                 continue;
@@ -789,7 +794,7 @@ impl SurveyBackend for RequesttyBackend {
     fn collect(
         &self,
         definition: &SurveyDefinition,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<Responses, Self::Error> {
         let mut responses = Responses::new();
 

@@ -2,7 +2,11 @@ use derive_survey::{ResponseValue, Responses, Survey};
 use std::path::PathBuf;
 
 /// Validates that a name is between 3 and 50 characters
-pub fn validate_name(value: &ResponseValue, _responses: &Responses) -> Result<(), String> {
+pub fn validate_name(
+    value: &ResponseValue,
+    _responses: &Responses,
+    _path: &derive_survey::ResponsePath,
+) -> Result<(), String> {
     let ResponseValue::String(name) = value else {
         return Ok(());
     };
@@ -22,7 +26,11 @@ pub fn validate_name(value: &ResponseValue, _responses: &Responses) -> Result<()
 }
 
 /// Validates email format
-pub fn validate_email(value: &ResponseValue, _responses: &Responses) -> Result<(), String> {
+pub fn validate_email(
+    value: &ResponseValue,
+    _responses: &Responses,
+    _path: &derive_survey::ResponsePath,
+) -> Result<(), String> {
     let ResponseValue::String(email) = value else {
         return Ok(());
     };
@@ -37,7 +45,11 @@ pub fn validate_email(value: &ResponseValue, _responses: &Responses) -> Result<(
 }
 
 /// Validates the secret passphrase
-pub fn validate_passphrase(value: &ResponseValue, _responses: &Responses) -> Result<(), String> {
+pub fn validate_passphrase(
+    value: &ResponseValue,
+    _responses: &Responses,
+    _path: &derive_survey::ResponsePath,
+) -> Result<(), String> {
     let ResponseValue::String(pass) = value else {
         return Ok(());
     };
@@ -54,7 +66,11 @@ pub fn validate_passphrase(value: &ResponseValue, _responses: &Responses) -> Res
 }
 
 /// Validates biography length
-pub fn validate_bio(value: &ResponseValue, _responses: &Responses) -> Result<(), String> {
+pub fn validate_bio(
+    value: &ResponseValue,
+    _responses: &Responses,
+    _path: &derive_survey::ResponsePath,
+) -> Result<(), String> {
     let ResponseValue::String(bio) = value else {
         return Ok(());
     };
@@ -68,6 +84,7 @@ pub fn validate_bio(value: &ResponseValue, _responses: &Responses) -> Result<(),
 pub fn validate_inventory_budget(
     value: &ResponseValue,
     _responses: &Responses,
+    _path: &derive_survey::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::ChosenVariants(selections) = value else {
         return Ok(());
@@ -100,7 +117,11 @@ pub fn validate_inventory_budget(
 }
 
 /// Validates that at least one skill is selected
-pub fn validate_skills(value: &ResponseValue, _responses: &Responses) -> Result<(), String> {
+pub fn validate_skills(
+    value: &ResponseValue,
+    _responses: &Responses,
+    _path: &derive_survey::ResponsePath,
+) -> Result<(), String> {
     let ResponseValue::ChosenVariants(selections) = value else {
         return Ok(());
     };
@@ -117,7 +138,11 @@ pub fn validate_skills(value: &ResponseValue, _responses: &Responses) -> Result<
 /// This validator is called each time a stat value is entered, checking the running total.
 pub const MAX_STAT_POINTS: i64 = 75;
 
-pub fn validate_stat_total(value: &ResponseValue, responses: &Responses) -> Result<(), String> {
+pub fn validate_stat_total(
+    value: &ResponseValue,
+    responses: &Responses,
+    _path: &derive_survey::ResponsePath,
+) -> Result<(), String> {
     let ResponseValue::Int(current_value) = value else {
         return Ok(());
     };

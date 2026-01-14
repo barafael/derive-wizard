@@ -78,8 +78,13 @@ fn implement_survey(input: &DeriveInput) -> syn::Result<TokenStream2> {
     // Generate typed field accessor methods
     let field_accessors = generate_field_accessors(input)?;
 
+    // Generate ValidationContext struct for validators
+    let validation_context = generate_validation_context(input)?;
+
     Ok(quote! {
         #validator_checks
+
+        #validation_context
 
         impl derive_survey::Survey for #name {
             fn survey() -> derive_survey::SurveyDefinition {
@@ -93,6 +98,7 @@ fn implement_survey(input: &DeriveInput) -> syn::Result<TokenStream2> {
             fn validate_field(
                 value: &derive_survey::ResponseValue,
                 responses: &derive_survey::Responses,
+                path: &derive_survey::ResponsePath,
             ) -> Result<(), String> {
                 #validate_field_fn
             }
@@ -445,14 +451,36 @@ fn generate_question_kind(
 ) -> syn::Result<TokenStream2> {
     // Handle special attributes first
     if attrs.mask {
+        let validate_opt = match (&attrs.validate, propagated_validator) {
+            (Some(v), _) => {
+                let v_str = v.to_string();
+                quote! { Some(#v_str.to_string()) }
+            }
+            (None, Some(v)) => {
+                let v_str = v.to_string();
+                quote! { Some(#v_str.to_string()) }
+            }
+            (None, None) => quote! { None },
+        };
         return Ok(quote! {
-            derive_survey::QuestionKind::Masked(derive_survey::MaskedQuestion::new())
+            derive_survey::QuestionKind::Masked(derive_survey::MaskedQuestion::with_validator(#validate_opt))
         });
     }
 
     if attrs.multiline {
+        let validate_opt = match (&attrs.validate, propagated_validator) {
+            (Some(v), _) => {
+                let v_str = v.to_string();
+                quote! { Some(#v_str.to_string()) }
+            }
+            (None, Some(v)) => {
+                let v_str = v.to_string();
+                quote! { Some(#v_str.to_string()) }
+            }
+            (None, None) => quote! { None },
+        };
         return Ok(quote! {
-            derive_survey::QuestionKind::Multiline(derive_survey::MultilineQuestion::new())
+            derive_survey::QuestionKind::Multiline(derive_survey::MultilineQuestion::with_validator(#validate_opt))
         });
     }
 
@@ -525,9 +553,22 @@ fn generate_question_kind(
     let type_name = type_to_string(ty);
 
     match type_name.as_str() {
-        "String" | "&str" => Ok(quote! {
-            derive_survey::QuestionKind::Input(derive_survey::InputQuestion::new())
-        }),
+        "String" | "&str" => {
+            let validate_opt = match (&attrs.validate, propagated_validator) {
+                (Some(v), _) => {
+                    let v_str = v.to_string();
+                    quote! { Some(#v_str.to_string()) }
+                }
+                (None, Some(v)) => {
+                    let v_str = v.to_string();
+                    quote! { Some(#v_str.to_string()) }
+                }
+                (None, None) => quote! { None },
+            };
+            Ok(quote! {
+                derive_survey::QuestionKind::Input(derive_survey::InputQuestion::with_validator(#validate_opt))
+            })
+        }
         "bool" => Ok(quote! {
             derive_survey::QuestionKind::Confirm(derive_survey::ConfirmQuestion::new())
         }),
@@ -970,6 +1011,125 @@ fn generate_field_accessor_method(
 }
 
 // ============================================================================
+// ValidationContext Generation
+// ============================================================================
+
+/// Generate a ValidationContext struct for accessing sibling fields during validation.
+/// This struct wraps Responses and a prefix path, providing typed accessor methods.
+fn generate_validation_context(input: &DeriveInput) -> syn::Result<TokenStream2> {
+    let name = &input.ident;
+    let context_name = format_ident!("{}ValidationContext", name);
+
+    let mut accessors = Vec::new();
+
+    match &input.data {
+        Data::Struct(data) => {
+            if let Fields::Named(fields) = &data.fields {
+                for field in &fields.named {
+                    let field_name = field.ident.as_ref().unwrap();
+                    let field_name_str = field_name.to_string();
+                    let ty = &field.ty;
+
+                    let accessor =
+                        generate_context_accessor_method(&field_name_str, field_name, ty);
+                    accessors.push(accessor);
+                }
+            }
+        }
+        Data::Enum(_) => {
+            // Enums don't need field accessors in the same way
+        }
+        Data::Union(_) => {}
+    }
+
+    Ok(quote! {
+        /// Validation context for #name, providing access to sibling fields.
+        pub struct #context_name<'a> {
+            responses: &'a derive_survey::Responses,
+            prefix: derive_survey::ResponsePath,
+        }
+
+        impl<'a> #context_name<'a> {
+            /// Create a new validation context with the given prefix path.
+            pub fn new(responses: &'a derive_survey::Responses, prefix: derive_survey::ResponsePath) -> Self {
+                Self { responses, prefix }
+            }
+
+            /// Get the prefix path for this context.
+            pub fn prefix(&self) -> &derive_survey::ResponsePath {
+                &self.prefix
+            }
+
+            /// Get the underlying responses.
+            pub fn responses(&self) -> &derive_survey::Responses {
+                self.responses
+            }
+
+            #(#accessors)*
+        }
+    })
+}
+
+/// Generate a single accessor method for ValidationContext
+fn generate_context_accessor_method(
+    field_name_str: &str,
+    field_name: &Ident,
+    ty: &Type,
+) -> TokenStream2 {
+    let method_name = format_ident!("get_{}", field_name);
+    let type_name = type_to_string(ty);
+
+    match type_name.as_str() {
+        "String" => quote! {
+            /// Get the value of this field from responses, if present.
+            pub fn #method_name(&self) -> Option<String> {
+                let path = self.prefix.child(#field_name_str);
+                self.responses.get_string(&path).ok().map(|s| s.to_string())
+            }
+        },
+        "bool" => quote! {
+            /// Get the value of this field from responses, if present.
+            pub fn #method_name(&self) -> Option<bool> {
+                let path = self.prefix.child(#field_name_str);
+                self.responses.get_bool(&path).ok()
+            }
+        },
+        "i8" | "i16" | "i32" | "i64" | "isize" => quote! {
+            /// Get the value of this field from responses, if present.
+            pub fn #method_name(&self) -> Option<#ty> {
+                let path = self.prefix.child(#field_name_str);
+                self.responses.get_int(&path).ok().map(|n| n as #ty)
+            }
+        },
+        "u8" | "u16" | "u32" | "u64" | "usize" => quote! {
+            /// Get the value of this field from responses, if present.
+            pub fn #method_name(&self) -> Option<#ty> {
+                let path = self.prefix.child(#field_name_str);
+                self.responses.get_int(&path).ok().map(|n| n as #ty)
+            }
+        },
+        "f32" | "f64" => quote! {
+            /// Get the value of this field from responses, if present.
+            pub fn #method_name(&self) -> Option<#ty> {
+                let path = self.prefix.child(#field_name_str);
+                self.responses.get_float(&path).ok().map(|n| n as #ty)
+            }
+        },
+        "PathBuf" => quote! {
+            /// Get the value of this field from responses, if present.
+            pub fn #method_name(&self) -> Option<std::path::PathBuf> {
+                let path = self.prefix.child(#field_name_str);
+                self.responses.get_string(&path).ok().map(std::path::PathBuf::from)
+            }
+        },
+        _ => {
+            // For complex types, don't generate accessors
+            quote! {}
+        }
+    }
+}
+
+// ============================================================================
 // Validation Generation
 // ============================================================================
 
@@ -985,7 +1145,7 @@ fn generate_validate_field_fn(input: &DeriveInput) -> syn::Result<TokenStream2> 
     let type_attrs = TypeAttrs::extract(&input.attrs)?;
     if let Some(validator) = &type_attrs.validate_fields {
         validators.push(quote! {
-            if let Err(e) = #validator(value, responses) {
+            if let Err(e) = #validator(value, responses, path) {
                 return Err(e);
             }
         });
@@ -1001,7 +1161,7 @@ fn generate_validate_field_fn(input: &DeriveInput) -> syn::Result<TokenStream2> 
                     if let Some(validator) = &attrs.validate {
                         // The validator is called directly with the value being validated
                         validators.push(quote! {
-                            if let Err(e) = #validator(value, responses) {
+                            if let Err(e) = #validator(value, responses, path) {
                                 return Err(e);
                             }
                         });
@@ -1036,7 +1196,7 @@ fn generate_validate_field_fn(input: &DeriveInput) -> syn::Result<TokenStream2> 
                     {
                         validators.push(quote! {
                             // Delegate validation to nested Survey type
-                            if let Err(e) = <#ty as derive_survey::Survey>::validate_field(value, responses) {
+                            if let Err(e) = <#ty as derive_survey::Survey>::validate_field(value, responses, path) {
                                 return Err(e);
                             }
                         });
@@ -1053,7 +1213,7 @@ fn generate_validate_field_fn(input: &DeriveInput) -> syn::Result<TokenStream2> 
 
                             if let Some(validator) = &attrs.validate {
                                 validators.push(quote! {
-                                    if let Err(e) = #validator(value, responses) {
+                                    if let Err(e) = #validator(value, responses, path) {
                                         return Err(e);
                                     }
                                 });
@@ -1066,7 +1226,7 @@ fn generate_validate_field_fn(input: &DeriveInput) -> syn::Result<TokenStream2> 
 
                             if let Some(validator) = &attrs.validate {
                                 validators.push(quote! {
-                                    if let Err(e) = #validator(value, responses) {
+                                    if let Err(e) = #validator(value, responses, path) {
                                         return Err(e);
                                     }
                                 });
@@ -1117,7 +1277,7 @@ fn generate_validator_checks(input: &DeriveInput) -> syn::Result<TokenStream2> {
     // Check propagated field validator (validate_fields)
     if let Some(validator) = &type_attrs.validate_fields {
         checks.push(quote! {
-            const _: fn(&derive_survey::ResponseValue, &derive_survey::Responses) -> Result<(), String> = #validator;
+            const _: fn(&derive_survey::ResponseValue, &derive_survey::Responses, &derive_survey::ResponsePath) -> Result<(), String> = #validator;
         });
     }
 
@@ -1126,7 +1286,7 @@ fn generate_validator_checks(input: &DeriveInput) -> syn::Result<TokenStream2> {
         let attrs = FieldAttrs::extract(&field.attrs)?;
         if let Some(validator) = &attrs.validate {
             checks.push(quote! {
-                const _: fn(&derive_survey::ResponseValue, &derive_survey::Responses) -> Result<(), String> = #validator;
+                const _: fn(&derive_survey::ResponseValue, &derive_survey::Responses, &derive_survey::ResponsePath) -> Result<(), String> = #validator;
             });
         }
         Ok(())
@@ -1225,7 +1385,7 @@ fn generate_builder(input: &DeriveInput, builder_name: &Ident) -> syn::Result<To
                 // Collect responses
                 let responses = backend.collect(
                     &definition,
-                    &|value, responses| #name::validate_field(value, responses),
+                    &|value, responses, path| #name::validate_field(value, responses, path),
                 ).map_err(Into::into)?;
 
                 // Reconstruct the type

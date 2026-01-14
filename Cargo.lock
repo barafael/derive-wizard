@@ -647,6 +647,7 @@ dependencies = [
  "anyhow",
  "derive-survey",
  "dialoguer",
+ "example-surveys",
  "thiserror 2.0.17",
 ]
 
@@ -658,6 +659,7 @@ dependencies = [
  "derive-survey",
  "eframe",
  "egui",
+ "example-surveys",
  "thiserror 2.0.17",
 ]
 
@@ -667,6 +669,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "derive-survey",
+ "example-surveys",
 ]
 
 [[package]]
@@ -687,6 +690,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "derive-survey",
+ "example-surveys",
  "requestty",
  "thiserror 2.0.17",
 ]

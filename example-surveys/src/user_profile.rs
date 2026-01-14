@@ -1,3 +1,7 @@
+//! User profile example types (simple demo)
+//!
+//! A simple user profile survey demonstrating basic field types.
+
 use derive_survey::Survey;
 
 /// A simple user profile survey.
@@ -16,6 +20,11 @@ pub struct UserProfile {
     /// User's email address.
     #[ask("What is your email?")]
     pub email: String,
+
+    /// Brief bio.
+    #[ask("Tell us about yourself")]
+    #[multiline]
+    pub bio: String,
 
     /// Whether the user wants to receive the newsletter.
     #[ask("Would you like to receive our newsletter?")]

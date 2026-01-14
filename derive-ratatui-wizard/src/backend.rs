@@ -498,7 +498,7 @@ impl WizardState {
 
     fn validate_and_submit(
         &mut self,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> bool {
         let Some(question) = self.current_question().cloned() else {
             return false;
@@ -521,7 +521,7 @@ impl WizardState {
                 let rv = ResponseValue::String(value.clone());
                 // Run validation if field has it
                 if question.has_validation {
-                    if let Err(err) = validate(&rv, &self.responses) {
+                    if let Err(err) = validate(&rv, &self.responses, &question.path) {
                         self.error_message = Some(err);
                         // Restore old value on validation failure
                         if let Some(old) = old_value {
@@ -556,7 +556,7 @@ impl WizardState {
                     }
                     let rv = ResponseValue::Int(n);
                     if question.has_validation {
-                        if let Err(err) = validate(&rv, &self.responses) {
+                        if let Err(err) = validate(&rv, &self.responses, &question.path) {
                             self.error_message = Some(err);
                             // Restore old value on validation failure
                             if let Some(old) = old_value {
@@ -600,7 +600,7 @@ impl WizardState {
                     }
                     let rv = ResponseValue::Float(n);
                     if question.has_validation {
-                        if let Err(err) = validate(&rv, &self.responses) {
+                        if let Err(err) = validate(&rv, &self.responses, &question.path) {
                             self.error_message = Some(err);
                             // Restore old value on validation failure
                             if let Some(old) = old_value {
@@ -727,7 +727,7 @@ impl WizardState {
                 };
 
                 if question.has_validation {
-                    if let Err(err) = validate(&rv, &self.responses) {
+                    if let Err(err) = validate(&rv, &self.responses, &question.path) {
                         self.error_message = Some(err);
                         if let Some(old) = old_value {
                             self.responses.insert(question.path.clone(), old);
@@ -878,7 +878,7 @@ impl WizardState {
 
     fn next_question(
         &mut self,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) {
         if self.validate_and_submit(validate) {
             self.current_index += 1;
@@ -1366,7 +1366,7 @@ impl SurveyBackend for RatatuiBackend {
     fn collect(
         &self,
         definition: &SurveyDefinition,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<Responses, Self::Error> {
         let mut terminal = self.setup_terminal()?;
         let mut state = WizardState::new(definition, self.theme.clone(), self.title.clone());

@@ -23,11 +23,16 @@ pub trait Survey: Sized {
     /// # Arguments
     /// * `value` - The value to validate
     /// * `responses` - All responses collected so far (for inter-field validation)
+    /// * `path` - The path of the field being validated (for context-aware validation)
     ///
     /// # Returns
     /// * `Ok(())` if validation passes
     /// * `Err(message)` with an error message if validation fails
-    fn validate_field(value: &ResponseValue, responses: &Responses) -> Result<(), String>;
+    fn validate_field(
+        value: &ResponseValue,
+        responses: &Responses,
+        path: &ResponsePath,
+    ) -> Result<(), String>;
 
     /// Validates the entire survey (composite validators, inter-field conditions).
     ///
@@ -54,7 +59,8 @@ pub trait SurveyBackend {
     /// # Arguments
     /// * `definition` - The survey structure to collect responses for
     /// * `validate` - A function to validate field values. Receives the value being
-    ///   validated and all responses collected so far (for inter-field validation).
+    ///   validated, all responses collected so far, and the path of the field being
+    ///   validated (for context-aware validation).
     ///
     /// # Returns
     /// * `Ok(responses)` on success
@@ -65,6 +71,6 @@ pub trait SurveyBackend {
     fn collect(
         &self,
         definition: &SurveyDefinition,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<Responses, Self::Error>;
 }

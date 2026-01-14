@@ -54,7 +54,7 @@ impl DialoguerBackend {
         &self,
         question: &Question,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
         path_prefix: Option<&ResponsePath>,
     ) -> Result<(), DialoguerError> {
         let path = match path_prefix {
@@ -168,7 +168,7 @@ impl DialoguerBackend {
         input_q: &derive_survey::InputQuestion,
         default: &DefaultValue,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), DialoguerError> {
         loop {
             let mut _theme;
@@ -196,7 +196,7 @@ impl DialoguerBackend {
             match result {
                 Ok(value) => {
                     let rv = ResponseValue::String(value.clone());
-                    if let Err(msg) = validate(&rv, responses) {
+                    if let Err(msg) = validate(&rv, responses, path) {
                         println!("Error: {msg}");
                         continue;
                     }
@@ -217,7 +217,7 @@ impl DialoguerBackend {
         prompt: &str,
         default: &DefaultValue,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), DialoguerError> {
         loop {
             println!("{prompt}");
@@ -240,7 +240,7 @@ impl DialoguerBackend {
             match result {
                 Ok(Some(value)) => {
                     let rv = ResponseValue::String(value.clone());
-                    if let Err(msg) = validate(&rv, responses) {
+                    if let Err(msg) = validate(&rv, responses, path) {
                         println!("Error: {msg}");
                         continue;
                     }
@@ -250,7 +250,7 @@ impl DialoguerBackend {
                 Ok(None) => {
                     // Editor was aborted or empty, use empty string
                     let rv = ResponseValue::String(String::new());
-                    if let Err(msg) = validate(&rv, responses) {
+                    if let Err(msg) = validate(&rv, responses, path) {
                         println!("Error: {msg}");
                         continue;
                     }
@@ -272,7 +272,7 @@ impl DialoguerBackend {
         _masked_q: &derive_survey::MaskedQuestion,
         _default: &DefaultValue, // Passwords don't have visible defaults
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), DialoguerError> {
         loop {
             let mut _theme;
@@ -291,7 +291,7 @@ impl DialoguerBackend {
             match result {
                 Ok(value) => {
                     let rv = ResponseValue::String(value.clone());
-                    if let Err(msg) = validate(&rv, responses) {
+                    if let Err(msg) = validate(&rv, responses, path) {
                         println!("Error: {msg}");
                         continue;
                     }
@@ -313,7 +313,7 @@ impl DialoguerBackend {
         int_q: &derive_survey::IntQuestion,
         default: &DefaultValue,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), DialoguerError> {
         loop {
             let mut _theme;
@@ -355,7 +355,7 @@ impl DialoguerBackend {
                     }
 
                     let rv = ResponseValue::Int(value);
-                    if let Err(msg) = validate(&rv, responses) {
+                    if let Err(msg) = validate(&rv, responses, path) {
                         println!("Error: {msg}");
                         continue;
                     }
@@ -377,7 +377,7 @@ impl DialoguerBackend {
         float_q: &derive_survey::FloatQuestion,
         default: &DefaultValue,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), DialoguerError> {
         loop {
             let mut _theme;
@@ -419,7 +419,7 @@ impl DialoguerBackend {
                     }
 
                     let rv = ResponseValue::Float(value);
-                    if let Err(msg) = validate(&rv, responses) {
+                    if let Err(msg) = validate(&rv, responses, path) {
                         println!("Error: {msg}");
                         continue;
                     }
@@ -478,7 +478,7 @@ impl DialoguerBackend {
         list_q: &derive_survey::ListQuestion,
         _default: &DefaultValue,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), DialoguerError> {
         let mut items: Vec<ResponseValue> = Vec::new();
 
@@ -637,7 +637,7 @@ impl DialoguerBackend {
         };
 
         // Validate the entire list
-        if let Err(msg) = validate(&rv, responses) {
+        if let Err(msg) = validate(&rv, responses, path) {
             println!("Error: {msg}");
             // For now, just return the error - in a real implementation we might loop
             return Err(DialoguerError::ValidationError(msg));
@@ -653,7 +653,7 @@ impl DialoguerBackend {
         prompt: &str,
         one_of: &derive_survey::OneOfQuestion,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), DialoguerError> {
         let items: Vec<&str> = one_of.variants.iter().map(|v| v.name.as_str()).collect();
 
@@ -738,7 +738,7 @@ impl DialoguerBackend {
         prompt: &str,
         any_of: &derive_survey::AnyOfQuestion,
         responses: &mut Responses,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<(), DialoguerError> {
         let selections = loop {
             let items: Vec<&str> = any_of.variants.iter().map(|v| v.name.as_str()).collect();
@@ -774,7 +774,7 @@ impl DialoguerBackend {
 
             // Validate the selection
             let selection_value = ResponseValue::ChosenVariants(selections.clone());
-            if let Err(msg) = validate(&selection_value, responses) {
+            if let Err(msg) = validate(&selection_value, responses, path) {
                 println!("Error: {msg}");
                 continue;
             }
@@ -823,7 +823,7 @@ impl SurveyBackend for DialoguerBackend {
     fn collect(
         &self,
         definition: &SurveyDefinition,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<Responses, Self::Error> {
         let mut responses = Responses::new();
 

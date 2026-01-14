@@ -10,14 +10,7 @@ fn main() -> anyhow::Result<()> {
 
     let profile: UserProfile = UserProfile::builder().run(backend)?;
 
-    println!("\n=== Profile Created ===");
-    println!("Name: {}", profile.name);
-    println!("Age: {}", profile.age);
-    println!("Email: {}", profile.email);
-    println!(
-        "Newsletter: {}",
-        if profile.newsletter { "Yes" } else { "No" }
-    );
+    println!("{profile:#?}");
 
     Ok(())
 }

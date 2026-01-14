@@ -18,7 +18,7 @@ use derive_ratatui_wizard::{RatatuiBackend, Theme};
 use example_surveys::JobApplication;
 use ratatui::style::Color;
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let theme = Theme {
         primary: Color::Blue,
         secondary: Color::LightBlue,
@@ -52,41 +52,8 @@ fn main() {
                 // Also pre-fill Conference in case they switch
                 .conference(|c| c.name("RustConf").year(2025))
         })
-        .run(backend);
+        .run(backend)?;
 
-    match result {
-        Ok(app) => {
-            println!("\n=== Application Received ===\n");
-            println!("Name: {}", app.name);
-            println!("Email: {}", app.email);
-            println!("Position: {:?}", app.position);
-            println!("Work style: {:?}", app.work_style);
-            println!("Referral: {:?}", app.referral);
-            println!(
-                "Experience: {} months at {}",
-                app.experience.months, app.experience.company
-            );
-            println!(
-                "Salary: ${}k base + ${}k bonus",
-                app.salary.base, app.salary.bonus
-            );
-            println!("Skills: {:?}", app.skills);
-            println!(
-                "Schools attended: {}",
-                if app.schools_attended.is_empty() {
-                    "None".to_string()
-                } else {
-                    app.schools_attended.join(", ")
-                }
-            );
-            println!("Resume: {:?}", app.resume);
-            println!("Relocate: {}", if app.relocate { "Yes" } else { "No" });
-            println!("Timezone: UTC{:+}", app.timezone);
-            println!("\n{:#?}", app);
-        }
-        Err(e) => {
-            eprintln!("Application cancelled: {e}");
-            std::process::exit(1);
-        }
-    }
+    println!("{:#?}", app);
+    Ok(())
 }

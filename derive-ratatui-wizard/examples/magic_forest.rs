@@ -21,7 +21,7 @@ use derive_ratatui_wizard::{RatatuiBackend, Theme};
 use example_surveys::MagicForest;
 use ratatui::style::Color;
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let fantasy_theme = Theme {
         primary: Color::Magenta,
         secondary: Color::LightMagenta,
@@ -83,53 +83,8 @@ fn main() {
                 // Also suggest values for Friend variant (in case user picks it)
                 .friend(|details| details.name("Hynix"))
         })
-        .run(backend);
+        .run(backend)?;
 
-    match result {
-        Ok(character) => {
-            let gold_multiplier = character.gold_multiplier_raw as f64 / 5.0;
-            println!("\n");
-            println!("╔═════════════════════════════════════════════════════════╗");
-            println!("║              CHARACTER CREATION COMPLETE                ║");
-            println!("╠═════════════════════════════════════════════════════════╣");
-            println!("║                                                         ║");
-            println!("  Name: {}", character.name);
-            println!("  Age: {} years", character.age);
-            println!("  Email: {}", character.email);
-            println!("  Role: {:?}", character.role);
-            println!("  Background: {:?}", character.background);
-            println!(
-                "  Home: {} in {}",
-                character.home.village, character.home.realm
-            );
-            println!("  Companion: {:?}", character.companion);
-            println!("  Skills: {:?}", character.skills);
-            println!("  Languages: {:?}", character.languages);
-            println!("  Inventory: {} items", character.inventory.len());
-            println!(
-                "  Stats: STR:{} DEX:{} INT:{} WIS:{} CHA:{} CON:{}",
-                character.stats.strength,
-                character.stats.dexterity,
-                character.stats.intelligence,
-                character.stats.wisdom,
-                character.stats.charisma,
-                character.stats.constitution,
-            );
-            println!(
-                "  Hardcore: {}",
-                if character.hardcore_mode { "YES" } else { "No" }
-            );
-            println!("  Lucky Number: {}", character.lucky_number);
-            println!("  Gold Multiplier: {:.1}x", gold_multiplier);
-            println!("  Portrait: {:?}", character.portrait_path);
-            println!("║                                                               ║");
-            println!("╚══════════════════════════════════════════════════════════════╝");
-            println!("\n=== Full Character Data ===\n");
-            println!("{:#?}", character);
-        }
-        Err(e) => {
-            eprintln!("\nCharacter creation failed: {}", e);
-            std::process::exit(1);
-        }
-    }
+    println!("{:#?}", character);
+    Ok(())
 }

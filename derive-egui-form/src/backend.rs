@@ -1349,7 +1349,7 @@ impl SurveyBackend for EguiBackend {
     fn collect(
         &self,
         definition: &SurveyDefinition,
-        _validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        _validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<Responses, Self::Error> {
         let state = Arc::new(Mutex::new(FormState::new(definition.clone())));
 

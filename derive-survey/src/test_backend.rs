@@ -108,7 +108,7 @@ impl SurveyBackend for TestBackend {
     fn collect(
         &self,
         definition: &SurveyDefinition,
-        validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+        validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
     ) -> Result<Responses, Self::Error> {
         let mut responses = Responses::new();
 
@@ -130,7 +130,7 @@ fn collect_question_responses(
     prefix: &ResponsePath,
     test_responses: &HashMap<String, ResponseValue>,
     responses: &mut Responses,
-    validate: &dyn Fn(&ResponseValue, &Responses) -> Result<(), String>,
+    validate: &dyn Fn(&ResponseValue, &Responses, &ResponsePath) -> Result<(), String>,
 ) -> Result<(), TestBackendError> {
     use crate::QuestionKind;
 
@@ -150,7 +150,7 @@ fn collect_question_responses(
             QuestionKind::Input(_) | QuestionKind::Multiline(_) | QuestionKind::Masked(_) => {
                 if let Some(value) = test_responses.get(&path_str) {
                     // Validate before inserting
-                    if let Err(msg) = validate(value, responses) {
+                    if let Err(msg) = validate(value, responses, &full_path) {
                         return Err(TestBackendError::ValidationFailed {
                             path: path_str,
                             message: msg,
@@ -164,7 +164,7 @@ fn collect_question_responses(
             QuestionKind::Int(_) => {
                 if let Some(value) = test_responses.get(&path_str) {
                     // Validate before inserting
-                    if let Err(msg) = validate(value, responses) {
+                    if let Err(msg) = validate(value, responses, &full_path) {
                         return Err(TestBackendError::ValidationFailed {
                             path: path_str,
                             message: msg,
@@ -178,7 +178,7 @@ fn collect_question_responses(
             QuestionKind::Float(_) => {
                 if let Some(value) = test_responses.get(&path_str) {
                     // Validate before inserting
-                    if let Err(msg) = validate(value, responses) {
+                    if let Err(msg) = validate(value, responses, &full_path) {
                         return Err(TestBackendError::ValidationFailed {
                             path: path_str,
                             message: msg,
@@ -199,7 +199,7 @@ fn collect_question_responses(
             QuestionKind::List(_) => {
                 if let Some(value) = test_responses.get(&path_str) {
                     // Validate before inserting
-                    if let Err(msg) = validate(value, responses) {
+                    if let Err(msg) = validate(value, responses, &full_path) {
                         return Err(TestBackendError::ValidationFailed {
                             path: path_str,
                             message: msg,

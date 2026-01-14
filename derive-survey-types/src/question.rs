@@ -288,10 +288,10 @@ impl InputQuestion {
     }
 
     /// Create with a validator.
-    pub fn with_validator(validate: impl Into<String>) -> Self {
+    pub fn with_validator(validate: Option<String>) -> Self {
         Self {
             default: None,
-            validate: Some(validate.into()),
+            validate,
         }
     }
 }
@@ -310,6 +310,14 @@ impl MultilineQuestion {
     /// Create a new multiline question.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Create with a validator.
+    pub fn with_validator(validate: Option<String>) -> Self {
+        Self {
+            default: None,
+            validate,
+        }
     }
 }
 
@@ -334,6 +342,14 @@ impl MaskedQuestion {
         Self {
             mask: Some(mask),
             validate: None,
+        }
+    }
+
+    /// Create with a validator.
+    pub fn with_validator(validate: Option<String>) -> Self {
+        Self {
+            mask: None,
+            validate,
         }
     }
 }
