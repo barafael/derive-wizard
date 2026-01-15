@@ -1,5 +1,7 @@
 [workspace]
 
+resolver = "3"
+
 default-members = ["derive-survey"]
 
 members = [
@@ -13,5 +15,3 @@ members = [
     "derive-survey-types",
     "example-surveys",
 ]
-
-resolver = "3"

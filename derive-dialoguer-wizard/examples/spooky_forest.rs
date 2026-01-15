@@ -1,12 +1,12 @@
-//! Magic Forest - Comprehensive example. Run with: cargo run -p derive-dialoguer-wizard --example magic_forest
+//! Spooky Forest - Comprehensive example. Run with: cargo run -p derive-dialoguer-wizard --example spooky_forest
 
 use derive_dialoguer_wizard::DialoguerBackend;
-use example_surveys::MagicForest;
+use example_surveys::SpookyForest;
 
 fn main() -> anyhow::Result<()> {
     let backend = DialoguerBackend::new();
 
-    let result = MagicForest::builder()
+    let result = SpookyForest::builder()
         // Simple field suggestions
         .suggest_name("Gandalf".to_string())
         .suggest_age(500) // Wizards live long, but within the 1000 year max

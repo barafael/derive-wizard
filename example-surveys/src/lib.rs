@@ -1,18 +1,18 @@
 pub mod app_settings;
-pub mod basic_fields;
-pub mod enum_oneof;
+pub mod basic_fields; // 1
+pub mod enum_oneof; // 2
 pub mod job_application;
-pub mod magic_forest;
 pub mod masked_input;
 pub mod min_max_bounds;
 pub mod multiline_text;
-pub mod multiselect;
+pub mod multiselect; // 3
 pub mod nested_struct;
 pub mod optional_fields;
 pub mod order_form;
 pub mod prelude_epilogue;
 pub mod sandwich;
-pub mod simple_magic_forest;
+pub mod simple_spooky_forest;
+pub mod spooky_forest;
 pub mod user_profile;
 pub mod validation;
 pub mod vec_lists;
@@ -29,17 +29,13 @@ pub use enum_oneof::{Checkout, PaymentMethod, ShippingMethod};
 // Re-export job_application types
 pub use job_application::{
     Experience, FocusArea, JobApplication, JobSkill, MAX_TOTAL_COMP, Position, Referral, Salary,
-    WorkStyle, validate_cover_letter, validate_email as validate_job_email,
-    validate_password as validate_job_password, validate_salary,
-    validate_skills as validate_job_skills,
+    WorkStyle,
 };
 
-// Re-export magic_forest types
-pub use magic_forest::{
+// Re-export spooky_forest types
+pub use spooky_forest::{
     Cast, CharacterStats, Companion, CompanionDetails, CompanionSpecies, FamiliarForm,
-    HomeLocation, Item, Language, MAX_STAT_POINTS, MagicForest, Role, Skill, WandMaterial,
-    validate_bio, validate_email as validate_magic_email, validate_inventory_budget, validate_name,
-    validate_passphrase, validate_skills as validate_magic_skills, validate_stat_total,
+    HomeLocation, Item, Language, MAX_STAT_POINTS, Role, Skill, SpookyForest, WandMaterial,
 };
 
 // Re-export masked_input types
@@ -72,9 +68,9 @@ pub use sandwich::{
     validate_nutrition, validate_toppings,
 };
 
-// Re-export simple_magic_forest types
-pub use simple_magic_forest::{
-    SimpleItem, SimpleMagicForest, SimpleRole, is_valid_name, is_within_starting_budget,
+// Re-export simple_spooky_forest types
+pub use simple_spooky_forest::{
+    SimpleItem, SimpleRole, SimpleSpookyForest, is_valid_name, is_within_starting_budget,
 };
 
 // Re-export user_profile types

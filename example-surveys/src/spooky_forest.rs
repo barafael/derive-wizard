@@ -402,7 +402,7 @@ pub enum Language {
     "Welcome, brave adventurer, to the Magic Forest!\nYou stand at the edge of an ancient woodland, ready to begin your journey.\nFirst, tell about yourself...\n\n"
 )]
 #[epilogue("Your character has been created!\nMay your legend in the Magic Forest be adventurous.")]
-pub struct MagicForest {
+pub struct SpookyForest {
     #[ask("What is your name?")]
     #[validate(validate_name)]
     pub name: String,

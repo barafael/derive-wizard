@@ -1,6 +1,6 @@
 //! Simple Magic Forest example types
 //!
-//! A simplified version of the magic forest adventure for quick demos.
+//! A simplified version of the spooky forest adventure for quick demos.
 //! Demonstrates:
 //! - Text input with validation
 //! - Password/masked input
@@ -96,7 +96,7 @@ pub enum SimpleItem {
 #[derive(Survey, Debug)]
 #[prelude("A journey begins...!")]
 #[epilogue("Good luck.")]
-pub struct SimpleMagicForest {
+pub struct SimpleSpookyForest {
     #[ask("What is your name?")]
     #[validate(is_valid_name)]
     pub name: String,

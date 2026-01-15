@@ -16,16 +16,28 @@
 //! - Field-level validation
 //! - Builder API with suggestions and assumptions
 //! - PathBuf support
-//!
-//! Run with: cargo run -p derive-requestty-wizard --example magic_forest
 
-use derive_requestty_wizard::RequesttyBackend;
-use example_surveys::MagicForest;
+use derive_ratatui_wizard::{RatatuiBackend, Theme};
+use example_surveys::SpookyForest;
+use ratatui::style::Color;
 
 fn main() -> anyhow::Result<()> {
-    let backend = RequesttyBackend::new();
+    let fantasy_theme = Theme {
+        primary: Color::Magenta,
+        secondary: Color::LightMagenta,
+        background: Color::Reset,
+        text: Color::White,
+        highlight: Color::Yellow,
+        error: Color::LightRed,
+        success: Color::LightGreen,
+        border: Color::DarkGray,
+    };
 
-    let result = MagicForest::builder()
+    let backend = RatatuiBackend::new()
+        .with_title("Magic Forest - Character Creation")
+        .with_theme(fantasy_theme);
+
+    let result = SpookyForest::builder()
         // Simple field suggestions
         .suggest_name("Gandalf".to_string())
         .suggest_age(500) // Wizards live long, but within the 1000 year max

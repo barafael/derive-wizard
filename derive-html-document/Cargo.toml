@@ -11,11 +11,3 @@ anyhow = "1"
 
 [dev-dependencies]
 example-surveys = { path = "../example-surveys" }
-
-[[example]]
-name = "simple"
-path = "examples/simple.rs"
-
-[[example]]
-name = "magic_forest"
-path = "examples/magic_forest.rs"

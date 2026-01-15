@@ -5,6 +5,8 @@
 //! - Assumptions that skip questions entirely
 //! - Editing existing data
 
+use std::path::PathBuf;
+
 use derive_survey::Survey;
 
 /// Application settings with suggested defaults.
@@ -32,5 +34,5 @@ pub struct AppSettings {
     pub debug_mode: bool,
 
     #[ask("Log file path:")]
-    pub log_path: String,
+    pub log_path: PathBuf,
 }
