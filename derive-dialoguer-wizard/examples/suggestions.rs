@@ -1,10 +1,4 @@
-//! Suggestions and assumptions example for the dialoguer backend.
-//!
-//! This example demonstrates:
-//! - Setting default/suggested values that users can modify
-//! - Editing existing data with with_suggestions
-//!
-//! Run with: cargo run -p derive-dialoguer-wizard --example suggestions
+//! Suggestions and assumptions example. Run with: cargo run -p derive-dialoguer-wizard --example suggestions
 
 use derive_dialoguer_wizard::DialoguerBackend;
 use example_surveys::AppSettings;

@@ -1,20 +1,4 @@
-//! Job Application - A compact example showcasing ALL derive-survey features
-//!
-//! Features demonstrated:
-//! - Prelude/epilogue messages
-//! - All primitives: String, bool, integers (i32, u8, u32)
-//! - Text input with validation (#[validate])
-//! - Password/masked input (#[mask])
-//! - Multiline text input (#[multiline])
-//! - Numeric bounds (#[min], #[max])
-//! - Enum selection with unit, newtype, tuple, and struct variants
-//! - Multi-select with validation (#[multiselect])
-//! - List input for Vec<String> (comma-separated)
-//! - Nested structs with propagated field validation (#[validate_fields])
-//! - PathBuf support
-//! - Builder API: suggestions, closures for nested types
-//!
-//! Run with: cargo run -p derive-dialoguer-wizard --example job_application
+//! Job Application - A compact example showcasing all features. Run with: cargo run -p derive-dialoguer-wizard --example job_application
 
 use derive_dialoguer_wizard::DialoguerBackend;
 use example_surveys::JobApplication;

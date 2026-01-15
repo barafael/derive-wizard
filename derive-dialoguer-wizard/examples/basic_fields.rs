@@ -1,11 +1,4 @@
-//! Basic field types example
-//!
-//! Demonstrates:
-//! - String input
-//! - Boolean confirmation
-//! - Numeric types (u32, i32, f64)
-//!
-//! Run with: cargo run --example basic_fields
+//! Basic field types example. Run with: cargo run --example basic_fields
 
 use derive_dialoguer_wizard::DialoguerBackend;
 use example_surveys::BasicFields;

@@ -1,10 +1,4 @@
-//! Min/max bounds example
-//!
-//! Demonstrates:
-//! - #[min(n)] attribute for minimum numeric value
-//! - #[max(n)] attribute for maximum numeric value
-//!
-//! Run with: cargo run --example min_max_bounds
+//! Min/max bounds example. Run with: cargo run --example min_max_bounds
 
 use derive_dialoguer_wizard::DialoguerBackend;
 use example_surveys::GameSettings;

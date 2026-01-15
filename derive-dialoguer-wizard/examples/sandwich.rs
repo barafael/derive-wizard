@@ -1,20 +1,4 @@
-//! Sandwich Builder - A minimal example showcasing all derive-survey features
-//!
-//! Features demonstrated:
-//! - Prelude/epilogue messages
-//! - Primitives: String, bool, i32, u32
-//! - Optional fields (Option<T> - skipped = None)
-//! - Text input with validation (#[validate])
-//! - Password/masked input (#[mask])
-//! - Multiline text input (#[multiline])
-//! - Numeric bounds (#[min], #[max])
-//! - Enum selection (unit, newtype, struct variants)
-//! - Multi-select (#[multiselect])
-//! - Nested struct with propagated validation (#[validate_fields])
-//! - PathBuf support
-//! - Builder API with suggestions and closures
-//!
-//! Run with: cargo run -p derive-dialoguer-wizard --example sandwich
+//! Sandwich Builder - Minimal all-features example. Run with: cargo run -p derive-dialoguer-wizard --example sandwich
 
 use derive_dialoguer_wizard::DialoguerBackend;
 use example_surveys::SandwichOrder;

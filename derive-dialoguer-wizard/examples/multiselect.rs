@@ -1,10 +1,4 @@
-//! Multiselect example
-//!
-//! Demonstrates:
-//! - #[multiselect] attribute for Vec<Enum> fields
-//! - Allows selecting multiple enum variants at once
-//!
-//! Run with: cargo run --example multiselect
+//! Multiselect example. Run with: cargo run --example multiselect
 
 use derive_dialoguer_wizard::DialoguerBackend;
 use example_surveys::DeveloperProfile;

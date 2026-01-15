@@ -2388,7 +2388,7 @@ fn generate_with_suggestions_struct(data: &syn::DataStruct) -> TokenStream2 {
                     let type_name = type_to_string(ty);
 
                     // Only handle primitive types directly
-                    let insertion = match type_name.as_str() {
+                    match type_name.as_str() {
                         "String" => Some(quote! {
                             self.suggestions.insert(
                                 #field_name_str.to_string(),
@@ -2426,8 +2426,7 @@ fn generate_with_suggestions_struct(data: &syn::DataStruct) -> TokenStream2 {
                             );
                         }),
                         _ => None, // Skip complex types
-                    };
-                    insertion
+                    }
                 })
                 .collect();
 
@@ -2444,7 +2443,7 @@ fn generate_with_suggestions_struct(data: &syn::DataStruct) -> TokenStream2 {
                     let ty = &f.ty;
                     let type_name = type_to_string(ty);
 
-                    let insertion = match type_name.as_str() {
+                    match type_name.as_str() {
                         "String" => Some(quote! {
                             self.suggestions.insert(
                                 #field_name_str.to_string(),
@@ -2476,8 +2475,7 @@ fn generate_with_suggestions_struct(data: &syn::DataStruct) -> TokenStream2 {
                             );
                         }),
                         _ => None,
-                    };
-                    insertion
+                    }
                 })
                 .collect();
 

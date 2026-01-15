@@ -1,9 +1,4 @@
-//! Multiline text input example
-//!
-//! Demonstrates:
-//! - #[multiline] attribute for opening a text editor or textarea
-//!
-//! Run with: cargo run --example multiline_text
+//! Multiline text input example. Run with: cargo run --example multiline_text
 
 use derive_dialoguer_wizard::DialoguerBackend;
 use example_surveys::BlogPost;

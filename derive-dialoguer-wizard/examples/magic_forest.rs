@@ -1,23 +1,4 @@
-//! Magic Forest - A comprehensive example demonstrating ALL derive-survey features
-//!
-//! This example showcases:
-//! - Prelude and epilogue messages
-//! - All primitive types (String, integers, floats, bool)
-//! - Text input with validation
-//! - Password/masked input
-//! - Multiline text input
-//! - Integer input with min/max constraints
-//! - Float input with min/max constraints
-//! - Boolean confirmation
-//! - Enum selection (OneOf) with unit, newtype, tuple, and struct variants
-//! - Multi-select (AnyOf) with validation
-//! - Nested structs (AllOf)
-//! - Deeply nested structures
-//! - Field-level validation
-//! - Builder API with suggestions and assumptions
-//! - PathBuf support
-//!
-//! Run with: cargo run -p derive-dialoguer-wizard --example magic_forest
+//! Magic Forest - Comprehensive example. Run with: cargo run -p derive-dialoguer-wizard --example magic_forest
 
 use derive_dialoguer_wizard::DialoguerBackend;
 use example_surveys::MagicForest;
