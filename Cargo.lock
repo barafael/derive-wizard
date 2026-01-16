@@ -672,6 +672,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive-latex-document"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "derive-survey",
+ "example-surveys",
+]
+
+[[package]]
 name = "derive-ratatui-wizard"
 version = "0.1.0"
 dependencies = [
