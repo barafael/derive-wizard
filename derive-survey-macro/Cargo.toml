@@ -10,10 +10,10 @@ repository = "https://github.com/barafael/derive-wizard"
 proc-macro = true
 
 [dependencies]
-derive-survey-types = { version = "0.1", path = "../derive-survey-types" }
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "2", features = ["full"] }
 
 [dev-dependencies]
 anyhow = "1"
+derive-survey-types = { version = "0.1", path = "../derive-survey-types" }

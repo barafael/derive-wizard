@@ -10,4 +10,6 @@ repository = "https://github.com/barafael/derive-wizard"
 derive-survey-types = { version = "0.1", path = "../derive-survey-types" }
 derive-survey-macro = { version = "0.1", path = "../derive-survey-macro" }
 thiserror = "2"
+
+[dev-dependencies]
 anyhow = "1"

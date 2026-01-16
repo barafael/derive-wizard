@@ -185,7 +185,7 @@ pub enum Referral {
         #[max(2030)]
         year: u32,
     },
-    Other(String),
+    Other(#[ask("Please specify:")] String),
 }
 
 /// Main job application survey

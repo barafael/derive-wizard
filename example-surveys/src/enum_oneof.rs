@@ -36,6 +36,9 @@ pub enum PaymentMethod {
 
     #[ask("Cash on Delivery")]
     CashOnDelivery,
+
+    #[ask("Other method")]
+    Other(#[ask("Describe other method:")] String),
 }
 
 #[derive(Survey, Debug)]

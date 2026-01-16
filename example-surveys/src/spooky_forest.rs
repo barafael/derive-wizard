@@ -298,14 +298,18 @@ pub enum Cast {
 pub enum Companion {
     /// Travel alone
     None,
+
     /// A loyal pet
     Pet(#[ask("Pet's name:")] String),
+
     /// A trusted friend with full details
-    Friend(CompanionDetails),
+    Friend(#[ask("Friend's details:")] CompanionDetails),
+
     /// A magical familiar
     Familiar {
         #[ask("Familiar's name:")]
         name: String,
+
         #[ask("What form does it take?")]
         form: FamiliarForm,
     },
