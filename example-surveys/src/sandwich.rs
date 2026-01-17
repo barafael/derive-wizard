@@ -1,11 +1,11 @@
-use derive_survey::{ResponseValue, Responses, Survey};
+use elicitor::{ResponseValue, Responses, Survey};
 use std::path::PathBuf;
 
 /// Single validator: toppings budget (each topping = $0.50, max $3 = 6 toppings)
 pub fn validate_toppings(
     value: &ResponseValue,
     _: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::ChosenVariants(picks) = value else {
         return Ok(());
@@ -23,7 +23,7 @@ pub fn validate_toppings(
 pub fn validate_nutrition(
     value: &ResponseValue,
     responses: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::Int(current) = value else {
         return Ok(());

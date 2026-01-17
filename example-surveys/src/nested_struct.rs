@@ -4,7 +4,7 @@
 //! - Nested structs create "AllOf" question groups
 //! - All nested fields are collected together
 
-use derive_survey::Survey;
+use elicitor::Survey;
 
 #[derive(Survey, Debug)]
 pub struct Address {

@@ -1,0 +1,12 @@
+[package]
+name = "elicitor-doc-latex"
+version = "0.1.0"
+edition = "2021"
+description = "Backend for elicitor: generates fillable LaTeX forms from SurveyDefinition."
+
+[dependencies]
+elicitor = { path = "../elicitor" }
+
+[dev-dependencies]
+example-surveys = { path = "../example-surveys" }
+anyhow = "1"

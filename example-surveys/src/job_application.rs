@@ -1,10 +1,10 @@
-use derive_survey::{ResponseValue, Responses, Survey};
+use elicitor::{ResponseValue, Responses, Survey};
 use std::path::PathBuf;
 
 pub fn validate_email(
     value: &ResponseValue,
     _: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::String(email) = value else {
         return Ok(());
@@ -18,7 +18,7 @@ pub fn validate_email(
 pub fn validate_password(
     value: &ResponseValue,
     _: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::String(pw) = value else {
         return Ok(());
@@ -32,7 +32,7 @@ pub fn validate_password(
 pub fn validate_cover_letter(
     value: &ResponseValue,
     _: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::String(text) = value else {
         return Ok(());
@@ -48,7 +48,7 @@ pub fn validate_cover_letter(
 pub fn validate_skills(
     value: &ResponseValue,
     _: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::ChosenVariants(picks) = value else {
         return Ok(());
@@ -68,7 +68,7 @@ pub const MAX_TOTAL_COMP: i64 = 250_000;
 pub fn validate_salary(
     value: &ResponseValue,
     responses: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::Int(current) = value else {
         return Ok(());

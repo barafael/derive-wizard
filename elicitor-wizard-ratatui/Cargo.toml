@@ -1,0 +1,17 @@
+[package]
+name = "elicitor-wizard-ratatui"
+version = "0.1.0"
+edition = "2024"
+description = "Ratatui wizard backend for elicitor (TUI step-by-step prompts)"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+elicitor = { path = "../elicitor" }
+ratatui = "0.30"
+crossterm = "0.29"
+anyhow = "1"
+thiserror = "2"
+
+[dev-dependencies]
+anyhow = "1"
+example-surveys = { path = "../example-surveys" }

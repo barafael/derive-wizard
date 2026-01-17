@@ -1,0 +1,15 @@
+[package]
+name = "elicitor"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Derive interactive surveys for Rust types. Backend-agnostic."
+repository = "https://github.com/barafael/derive-wizard"
+
+[dependencies]
+elicitor-types = { version = "0.1", path = "../elicitor-types" }
+elicitor-macro = { version = "0.1", path = "../elicitor-macro" }
+thiserror = "2"
+
+[dev-dependencies]
+anyhow = "1"

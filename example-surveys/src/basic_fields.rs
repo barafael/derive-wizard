@@ -5,7 +5,7 @@
 //! - Boolean confirmation
 //! - Numeric types (u32, i32, f64)
 
-use derive_survey::Survey;
+use elicitor::Survey;
 
 #[derive(Survey, Debug)]
 pub struct BasicFields {

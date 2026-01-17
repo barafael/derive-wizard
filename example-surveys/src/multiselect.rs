@@ -5,7 +5,7 @@
 //! - Allows selecting multiple enum variants at once
 //! - Data-carrying variants (newtype and struct) with follow-up questions
 
-use derive_survey::Survey;
+use elicitor::Survey;
 
 #[derive(Survey, Debug)]
 pub enum ProgrammingLanguage {

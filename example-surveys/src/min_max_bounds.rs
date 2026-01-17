@@ -4,7 +4,7 @@
 //! - #[min(n)] attribute for minimum numeric value
 //! - #[max(n)] attribute for maximum numeric value
 
-use derive_survey::Survey;
+use elicitor::Survey;
 
 #[derive(Survey, Debug)]
 pub struct GameSettings {

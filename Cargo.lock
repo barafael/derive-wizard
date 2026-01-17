@@ -641,110 +641,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "derive-dialoguer-wizard"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "derive-survey",
- "dialoguer",
- "example-surveys",
- "thiserror 2.0.17",
-]
-
-[[package]]
-name = "derive-egui-form"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "derive-survey",
- "eframe",
- "egui",
- "example-surveys",
- "thiserror 2.0.17",
-]
-
-[[package]]
-name = "derive-html-document"
-version = "0.1.0"
-dependencies = [
- "derive-survey",
- "example-surveys",
-]
-
-[[package]]
-name = "derive-latex-document"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "derive-survey",
- "example-surveys",
-]
-
-[[package]]
-name = "derive-ratatui-form"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "crossterm 0.29.0",
- "derive-survey",
- "example-surveys",
- "ratatui",
- "thiserror 2.0.17",
-]
-
-[[package]]
-name = "derive-ratatui-wizard"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "crossterm 0.29.0",
- "derive-survey",
- "example-surveys",
- "ratatui",
- "thiserror 2.0.17",
-]
-
-[[package]]
-name = "derive-requestty-wizard"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "derive-survey",
- "example-surveys",
- "requestty",
- "thiserror 2.0.17",
-]
-
-[[package]]
-name = "derive-survey"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "derive-survey-macro",
- "derive-survey-types",
- "thiserror 2.0.17",
-]
-
-[[package]]
-name = "derive-survey-macro"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "derive-survey-types",
- "proc-macro2",
- "quote",
- "syn 2.0.113",
-]
-
-[[package]]
-name = "derive-survey-types"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "thiserror 2.0.17",
-]
-
-[[package]]
 name = "derive_more"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -972,6 +868,110 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
+name = "elicitor"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "elicitor-macro",
+ "elicitor-types",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "elicitor-doc-html"
+version = "0.1.0"
+dependencies = [
+ "elicitor",
+ "example-surveys",
+]
+
+[[package]]
+name = "elicitor-doc-latex"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "elicitor",
+ "example-surveys",
+]
+
+[[package]]
+name = "elicitor-form-egui"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "eframe",
+ "egui",
+ "elicitor",
+ "example-surveys",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "elicitor-form-ratatui"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "crossterm 0.29.0",
+ "elicitor",
+ "example-surveys",
+ "ratatui",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "elicitor-macro"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "elicitor-types",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.113",
+]
+
+[[package]]
+name = "elicitor-types"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "elicitor-wizard-dialoguer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dialoguer",
+ "elicitor",
+ "example-surveys",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "elicitor-wizard-ratatui"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "crossterm 0.29.0",
+ "elicitor",
+ "example-surveys",
+ "ratatui",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "elicitor-wizard-requestty"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "elicitor",
+ "example-surveys",
+ "requestty",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "emath"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1046,7 +1046,7 @@ name = "example-surveys"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "derive-survey",
+ "elicitor",
 ]
 
 [[package]]

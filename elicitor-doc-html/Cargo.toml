@@ -1,0 +1,12 @@
+[package]
+name = "elicitor-doc-html"
+version = "0.1.0"
+edition = "2024"
+description = "HTML document generator for elicitor (generates fillable HTML forms)"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+elicitor = { path = "../elicitor" }
+
+[dev-dependencies]
+example-surveys = { path = "../example-surveys" }

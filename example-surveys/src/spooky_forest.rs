@@ -1,11 +1,11 @@
-use derive_survey::{ResponseValue, Responses, Survey};
+use elicitor::{ResponseValue, Responses, Survey};
 use std::path::PathBuf;
 
 /// Validates that a name is between 3 and 50 characters
 pub fn validate_name(
     value: &ResponseValue,
     _responses: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::String(name) = value else {
         return Ok(());
@@ -29,7 +29,7 @@ pub fn validate_name(
 pub fn validate_email(
     value: &ResponseValue,
     _responses: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::String(email) = value else {
         return Ok(());
@@ -48,7 +48,7 @@ pub fn validate_email(
 pub fn validate_passphrase(
     value: &ResponseValue,
     _responses: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::String(pass) = value else {
         return Ok(());
@@ -69,7 +69,7 @@ pub fn validate_passphrase(
 pub fn validate_bio(
     value: &ResponseValue,
     _responses: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::String(bio) = value else {
         return Ok(());
@@ -84,7 +84,7 @@ pub fn validate_bio(
 pub fn validate_inventory_budget(
     value: &ResponseValue,
     _responses: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::ChosenVariants(selections) = value else {
         return Ok(());
@@ -120,7 +120,7 @@ pub fn validate_inventory_budget(
 pub fn validate_skills(
     value: &ResponseValue,
     _responses: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::ChosenVariants(selections) = value else {
         return Ok(());
@@ -141,7 +141,7 @@ pub const MAX_STAT_POINTS: i64 = 75;
 pub fn validate_stat_total(
     value: &ResponseValue,
     responses: &Responses,
-    _path: &derive_survey::ResponsePath,
+    _path: &elicitor::ResponsePath,
 ) -> Result<(), String> {
     let ResponseValue::Int(current_value) = value else {
         return Ok(());

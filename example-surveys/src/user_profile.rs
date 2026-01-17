@@ -2,7 +2,7 @@
 //!
 //! A simple user profile survey demonstrating basic field types.
 
-use derive_survey::Survey;
+use elicitor::Survey;
 
 /// A simple user profile survey.
 #[derive(Debug, Survey)]

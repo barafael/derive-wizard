@@ -5,7 +5,7 @@
 //! - AllOf (nested structs)
 //! - Variants with data
 
-use derive_survey::Survey;
+use elicitor::Survey;
 
 /// Payment method selection (OneOf example).
 #[derive(Debug, Survey)]

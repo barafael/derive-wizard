@@ -4,7 +4,7 @@
 //! - #[mask] attribute for hiding sensitive input like passwords
 //! - Cross-field validation for password confirmation
 
-use derive_survey::{ResponsePath, ResponseValue, Responses, Survey};
+use elicitor::{ResponsePath, ResponseValue, Responses, Survey};
 
 /// Validates that the password confirmation matches the original password
 pub fn passwords_match(

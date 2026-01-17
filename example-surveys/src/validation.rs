@@ -5,7 +5,7 @@
 //! - Custom validator functions
 //! - Using ResponseValue and Responses for validation
 
-use derive_survey::{ResponsePath, ResponseValue, Responses, Survey};
+use elicitor::{ResponsePath, ResponseValue, Responses, Survey};
 
 pub fn validate_email(
     value: &ResponseValue,

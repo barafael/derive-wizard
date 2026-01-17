@@ -5,7 +5,7 @@
 //! - Vec<numeric> for collecting lists of numbers
 //! - Min/max bounds on numeric list elements
 
-use derive_survey::Survey;
+use elicitor::Survey;
 
 #[derive(Survey, Debug)]
 pub struct ShoppingList {

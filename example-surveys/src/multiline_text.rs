@@ -3,7 +3,7 @@
 //! Demonstrates:
 //! - #[multiline] attribute for opening a text editor or textarea
 
-use derive_survey::Survey;
+use elicitor::Survey;
 
 #[derive(Survey, Debug)]
 pub struct BlogPost {

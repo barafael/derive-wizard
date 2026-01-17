@@ -2,18 +2,18 @@
 
 resolver = "3"
 
-default-members = ["derive-survey"]
+default-members = ["elicitor"]
 
 members = [
-    "derive-survey",
-    "derive-dialoguer-wizard",
-    "derive-egui-form",
-    "derive-html-document",
-    "derive-survey-macro",
-    "derive-ratatui-wizard",
-    "derive-ratatui-form",
-    "derive-requestty-wizard",
-    "derive-survey-types",
+    "elicitor",
+    "elicitor-types",
+    "elicitor-macro",
+    "elicitor-wizard-dialoguer",
+    "elicitor-wizard-requestty",
+    "elicitor-wizard-ratatui",
+    "elicitor-form-ratatui",
+    "elicitor-form-egui",
+    "elicitor-doc-latex",
+    "elicitor-doc-html",
     "example-surveys",
-    "derive-latex-document",
 ]

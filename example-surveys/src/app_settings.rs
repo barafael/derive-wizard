@@ -7,7 +7,7 @@
 
 use std::path::PathBuf;
 
-use derive_survey::Survey;
+use elicitor::Survey;
 
 /// Application settings with suggested defaults.
 #[derive(Debug, Clone, Survey)]

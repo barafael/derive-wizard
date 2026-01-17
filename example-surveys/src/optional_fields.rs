@@ -4,7 +4,7 @@
 //! - Option<T> for optional fields
 //! - Using builder to suggest or assume optional values
 
-use derive_survey::Survey;
+use elicitor::Survey;
 use std::path::PathBuf;
 
 #[derive(Survey, Debug)]

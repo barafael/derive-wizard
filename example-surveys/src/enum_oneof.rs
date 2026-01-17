@@ -6,7 +6,7 @@
 //! - Newtype variants (with follow-up question)
 //! - Struct variants (with multiple follow-up questions)
 
-use derive_survey::Survey;
+use elicitor::Survey;
 
 #[derive(Survey, Debug)]
 pub enum ShippingMethod {

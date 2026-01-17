@@ -4,7 +4,7 @@
 //! - #[prelude("...")] for showing a message before the survey starts
 //! - #[epilogue("...")] for showing a message after the survey completes
 
-use derive_survey::Survey;
+use elicitor::Survey;
 
 #[derive(Survey, Debug)]
 #[prelude(

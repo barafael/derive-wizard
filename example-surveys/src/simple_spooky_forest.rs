@@ -8,7 +8,7 @@
 //! - Enum selection (OneOf)
 //! - Multi-select (AnyOf) with budget validation
 
-use derive_survey::{ResponsePath, ResponseValue, Responses, Survey};
+use elicitor::{ResponsePath, ResponseValue, Responses, Survey};
 
 pub fn is_valid_name(
     value: &ResponseValue,
