@@ -1,5 +1,8 @@
 # derive-wizard
 
+> **DEPRECATED**: This crate has been renamed to [`elicitor`](https://crates.io/crates/elicitor).
+Please use `elicitor` for all new projects. This crate will no longer receive updates. Elicitor is much better.
+
 A Rust procedural macro that automatically generates interactive CLI wizards from struct definitions using [requestty](https://crates.io/crates/requestty).
 
 ## Showcase
