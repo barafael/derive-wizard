@@ -1,6 +1,6 @@
 [package]
 name = "derive-wizard"
-version = "0.5.0"
+version = "0.5.0-use-the-elicitor-crate-instead"
 edition = "2024"
 repository = "https://github.com/barafael/derive-wizard"
 license = "MIT OR Apache-2.0"
